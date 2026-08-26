@@ -1,0 +1,35 @@
+# Python / Django
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+db.sqlite3
+staticfiles/
+media/
+
+
+# Environment secrets
+.env
+.env.local
+
+# Node / React / Vite
+node_modules/
+dist/
+frontend/dist/
+.vite/
+
+# Editor / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker (added later, harmless now)
+*.pid
