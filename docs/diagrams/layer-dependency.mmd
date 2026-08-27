@@ -1,0 +1,17 @@
+flowchart TB
+
+    API["API Layer<br/>Django REST Framework"]
+
+    APP["Application Layer<br/>Use Cases + Agent Orchestration"]
+
+    DOMAIN["Domain Layer<br/>Business Rules + Domain Entities"]
+
+    PORTS["Ports / Interfaces<br/>Repositories + LLM + Vector Store"]
+
+    INFRA["Infrastructure Layer<br/>PostgreSQL + pgvector + LLM Adapter"]
+
+    API --> APP
+    APP -->|"uses"| DOMAIN
+    APP -->|"uses"| PORTS
+
+    INFRA -->|"implements"| PORTS

@@ -1,0 +1,98 @@
+erDiagram
+
+    USER {
+        uuid id PK
+        string email
+        string role
+        datetime created_at
+    }
+
+    CLIENT {
+        uuid id PK
+        string name
+        datetime created_at
+    }
+
+    POLICY {
+        uuid id PK
+        uuid client_id FK
+        string policy_number
+        datetime created_at
+    }
+
+    POLICY_VERSION {
+        uuid id PK
+        uuid policy_id FK
+        string version
+        date effective_from
+        date effective_to
+    }
+
+    CLAIM {
+        uuid id PK
+        uuid client_id FK
+        uuid policy_id FK
+        uuid adjuster_id FK
+        date claim_date
+        string status
+        datetime created_at
+    }
+
+    DOCUMENT {
+        uuid id PK
+        uuid policy_id FK
+        string filename
+        string file_type
+        string status
+        datetime created_at
+    }
+
+    DOCUMENT_CHUNK {
+        uuid id PK
+        uuid document_id FK
+        int page_number
+        string section
+        text content
+        string embedding
+    }
+
+    APPROVAL {
+        uuid id PK
+        uuid claim_id FK
+        uuid approver_id FK
+        string status
+        text comment
+        datetime created_at
+    }
+
+    DECISION {
+        uuid id PK
+        uuid claim_id FK
+        uuid approved_by FK
+        string outcome
+        text rationale
+        datetime created_at
+    }
+
+
+    CLIENT ||--o{ POLICY : owns
+
+    POLICY ||--o{ POLICY_VERSION : has
+
+    CLIENT ||--o{ CLAIM : submits
+
+    POLICY ||--o{ CLAIM : covers
+
+    USER ||--o{ CLAIM : assigned_to
+
+    POLICY ||--o{ DOCUMENT : has
+
+    DOCUMENT ||--o{ DOCUMENT_CHUNK : contains
+
+    CLAIM ||--o{ APPROVAL : requires
+
+    USER ||--o{ APPROVAL : creates
+
+    CLAIM ||--o| DECISION : results_in
+
+    USER ||--o{ DECISION : approves

@@ -146,8 +146,61 @@ direct access to the application's database.
 
 
 ---
+## 4. Entity Relationship Diagram
 
-# 4. Architecture Status
+The ER diagram shows the main persistent entities and their relationships
+within the application database.
+
+The main entities include:
+
+- User
+- Client
+- Policy
+- Policy Version
+- Claim
+- Document
+- Document Chunk
+- Approval
+- Decision
+
+The model represents the relationship between clients, their policies,
+policy versions, claims, insurance documents, document chunks, approvals,
+and final decisions.
+
+Policy documents are processed into chunks that can be embedded and
+stored for semantic retrieval.
+
+Claims are assigned to Adjusters, while final high-impact decisions are
+recorded through the approval workflow.
+
+**Diagram source:** [`er-diagram.mmd`](diagrams/er-diagram.mmd)
+
+
+---
+
+## 5. Layer Dependency Diagram
+
+The layer dependency diagram shows the dependency direction between
+the main architectural layers.
+
+The architecture separates:
+
+- API Layer
+- Application Layer
+- Domain Layer
+- Ports / Interfaces
+- Infrastructure Layer
+
+The Application Layer depends on domain logic and defined ports rather
+than directly depending on infrastructure implementations.
+
+Infrastructure implements the required ports, allowing infrastructure
+details such as databases, vector storage, and external services to
+remain replaceable.
+
+**Diagram source:** [`layer-dependency.mmd`](diagrams/layer-dependency.mmd)
+
+# 6. Architecture Status
 
 This document currently describes the architecture diagrams completed
 at the current stage of the project.
