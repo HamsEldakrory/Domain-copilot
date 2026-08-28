@@ -1,10 +1,10 @@
 erDiagram
 
     USER {
-        uuid id PK
+        int id PK
+        string username
         string email
         string role
-        datetime created_at
     }
 
     CLIENT {
@@ -28,19 +28,9 @@ erDiagram
         date effective_to
     }
 
-    CLAIM {
-        uuid id PK
-        uuid client_id FK
-        uuid policy_id FK
-        uuid adjuster_id FK
-        date claim_date
-        string status
-        datetime created_at
-    }
-
     DOCUMENT {
         uuid id PK
-        uuid policy_id FK
+        uuid policy_version_id FK
         string filename
         string file_type
         string status
@@ -53,13 +43,49 @@ erDiagram
         int page_number
         string section
         text content
-        string embedding
+        vector embedding
+    }
+
+    CLAIM {
+        uuid id PK
+        uuid client_id FK
+        uuid policy_version_id FK
+        int adjuster_id FK
+        date claim_date
+        string status
+        datetime created_at
+    }
+
+    JOB {
+        uuid id PK
+        uuid claim_id FK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    JOB_STEP {
+        uuid id PK
+        uuid job_id FK
+        string name
+        string status
+        datetime started_at
+        datetime finished_at
+    }
+
+    AGENT_RUN {
+        uuid id PK
+        uuid job_id FK
+        string agent_name
+        json input_data
+        json output_data
+        datetime created_at
     }
 
     APPROVAL {
         uuid id PK
         uuid claim_id FK
-        uuid approver_id FK
+        int approver_id FK
         string status
         text comment
         datetime created_at
@@ -68,31 +94,42 @@ erDiagram
     DECISION {
         uuid id PK
         uuid claim_id FK
-        uuid approved_by FK
+        int approved_by_id FK
         string outcome
         text rationale
         datetime created_at
     }
 
+    AUDIT_LOG {
+        uuid id PK
+        uuid job_id FK
+        uuid agent_run_id FK
+        int actor_id FK
+        string action
+        json metadata
+        datetime created_at
+    }
 
-    CLIENT ||--o{ POLICY : owns
 
+    CLIENT ||--o{ POLICY : has
     POLICY ||--o{ POLICY_VERSION : has
-
-    CLIENT ||--o{ CLAIM : submits
-
-    POLICY ||--o{ CLAIM : covers
-
-    USER ||--o{ CLAIM : assigned_to
-
-    POLICY ||--o{ DOCUMENT : has
-
+    POLICY_VERSION ||--o{ DOCUMENT : contains
     DOCUMENT ||--o{ DOCUMENT_CHUNK : contains
 
+    CLIENT ||--o{ CLAIM : submits
+    POLICY_VERSION o|--o{ CLAIM : applies_to
+    USER ||--o{ CLAIM : handles
+
+    CLAIM ||--o{ JOB : has
+    JOB ||--o{ JOB_STEP : contains
+    JOB ||--o{ AGENT_RUN : executes
+
     CLAIM ||--o{ APPROVAL : requires
+    USER ||--o{ APPROVAL : approves
 
-    USER ||--o{ APPROVAL : creates
+    CLAIM ||--o{ DECISION : has
+    USER ||--o{ DECISION : makes
 
-    CLAIM ||--o| DECISION : results_in
-
-    USER ||--o{ DECISION : approves
+    JOB o|--o{ AUDIT_LOG : generates
+    AGENT_RUN o|--o{ AUDIT_LOG : generates
+    USER o|--o{ AUDIT_LOG : performs
