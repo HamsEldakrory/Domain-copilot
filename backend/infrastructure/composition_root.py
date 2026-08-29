@@ -24,8 +24,12 @@ def _build_llm_provider():
     
 def build_embedding_provider():
     name = os.getenv("EMBEDDING_PROVIDER", "openai")
-    provider_cls = PROVIDERS.get(name, OpenAIProvider)
-    return provider_cls()
+    if name not in PROVIDERS:
+        raise ValueError(
+            f"EMBEDDING_PROVIDER='{name}' is not a recognized provider. "
+            f"Valid options: {list(PROVIDERS.keys())}"
+        )
+    return PROVIDERS[name]()
 
 def bootstrap():
     container.register(LLMProvider, _build_llm_provider)
