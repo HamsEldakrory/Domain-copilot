@@ -11,9 +11,9 @@ from domain.ports.llm_provider import (
 
 class OllamaProvider(LLMProvider):
     def __init__(self, model: str | None = None, embedding_model: str | None = None, host: str | None = None):
-        self._model = model or os.getenv("OLLAMA_MODEL", "llama3.2")
-        self._embedding_model = embedding_model or os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
-        self._client = ollama.Client(host=host or os.getenv("OLLAMA_HOST", "http://localhost:11434"))
+        self._model = model or os.getenv("OLLAMA_MODEL")
+        self._embedding_model = embedding_model or os.getenv("OLLAMA_EMBEDDING_MODEL")
+        self._client = ollama.Client(host=host or os.getenv("OLLAMA_HOST"))
 
     def _to_ollama_messages(self, messages: list[Message]) -> list[dict]:
         return [{"role": m.role, "content": m.content} for m in messages]
