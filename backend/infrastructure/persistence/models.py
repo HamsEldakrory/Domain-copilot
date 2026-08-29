@@ -49,6 +49,7 @@ class DocumentChunk(models.Model):
     section = models.CharField(max_length=255, blank=True)
     content = models.TextField()
     embedding = VectorField(dimensions=1536, null=True, blank=True)
+    clause = models.CharField(max_length=50, blank=True)
 
 
 class Claim(models.Model):
