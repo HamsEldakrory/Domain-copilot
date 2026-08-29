@@ -10,8 +10,9 @@ from domain.ports.llm_provider import (
 )
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, model: str | None = None, host: str | None = None):
+    def __init__(self, model: str | None = None, embedding_model: str | None = None, host: str | None = None):
         self._model = model or os.getenv("OLLAMA_MODEL", "llama3.2")
+        self._embedding_model = embedding_model or os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
         self._client = ollama.Client(host=host or os.getenv("OLLAMA_HOST", "http://localhost:11434"))
 
     def _to_ollama_messages(self, messages: list[Message]) -> list[dict]:
@@ -66,9 +67,8 @@ class OllamaProvider(LLMProvider):
             content = chunk.message.content
             if content:
                 yield content
-
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         return [
-            self._client.embeddings(model=self._model, prompt=text)["embedding"]
+            self._client.embeddings(model=self._embedding_model, prompt=text)["embedding"]
             for text in texts
         ]

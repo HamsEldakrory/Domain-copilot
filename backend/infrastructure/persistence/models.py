@@ -51,8 +51,8 @@ class DocumentChunk(models.Model):
     page_number = models.IntegerField(null=True, blank=True)
     section = models.CharField(max_length=255, blank=True)
     content = models.TextField()
-    embedding = VectorField(dimensions=1536, null=True, blank=True)
     clause = models.CharField(max_length=50, blank=True)
+    embedding = VectorField(dimensions=None, null=True, blank=True)
 
 
 class Claim(models.Model):

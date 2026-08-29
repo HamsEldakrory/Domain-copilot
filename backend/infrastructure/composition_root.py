@@ -21,6 +21,11 @@ def _build_llm_provider():
         return primary_cls()
     except Exception:
         return fallback_cls()
+    
+def build_embedding_provider():
+    name = os.getenv("EMBEDDING_PROVIDER", "openai")
+    provider_cls = PROVIDERS.get(name, OpenAIProvider)
+    return provider_cls()
 
 def bootstrap():
     container.register(LLMProvider, _build_llm_provider)
