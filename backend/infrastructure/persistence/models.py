@@ -39,6 +39,9 @@ class Document(models.Model):
     filename = models.CharField(max_length=255)
     file_type = models.CharField(max_length=50)
     status = models.CharField(max_length=50, default="pending")
+    content_hash = models.CharField(max_length=64, blank=True)
+    error_message = models.TextField(blank=True)
+    embedding_provider = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
