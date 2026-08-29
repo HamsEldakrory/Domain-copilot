@@ -13,7 +13,7 @@ from domain.ports.llm_provider import (
 class OpenAIProvider(LLMProvider):
     def __init__(self, api_key: str | None = None, model: str | None = None):
         self._client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
-        self._model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self._model = model or os.getenv("OPENAI_MODEL")
 
     def _to_openai_messages(self, messages: list[Message]) -> list[dict]:
         return [{"role": m.role, "content": m.content} for m in messages]
@@ -75,8 +75,9 @@ class OpenAIProvider(LLMProvider):
                 yield delta.content
 
     def embeddings(self, texts: list[str]) -> list[list[float]]:
+        embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
         response = self._client.embeddings.create(
-            model="text-embedding-3-small",
+            model=embedding_model,
             input=texts,
         )
         return [item.embedding for item in response.data]
