@@ -9,7 +9,7 @@ class KeywordRetriever(Retriever):
             qs = qs.filter(document__policy_version_id=policy_version_id)
         search_query = SearchQuery(query)
         qs = qs.annotate(
-            rank=SearchRank(SearchVector("content"), search_query)
+            rank=SearchRank(SearchVector("search_content"), search_query)
         ).filter(rank__gt=0).order_by("-rank")[:top_k]
         results = []
         for chunk in qs:
