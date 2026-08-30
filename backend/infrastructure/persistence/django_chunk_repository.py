@@ -6,9 +6,8 @@ class DjangoChunkRepository(ChunkRepository):
         try:
             return Document.objects.get(id=document_id).content_hash
         except Document.DoesNotExist:
-            return None
-        
-    def replace_chunks(self, document_id, chunk_candidates, embeddings):
+            return None 
+    def replace_chunks(self, document_id, chunk_candidates, embeddings, search_texts):
         DocumentChunk.objects.filter(document_id=document_id).delete()
         objs = [
             DocumentChunk(
@@ -17,12 +16,12 @@ class DjangoChunkRepository(ChunkRepository):
                 section=c.section or "",
                 clause=c.clause or "",
                 content=c.content,
+                search_content=s,
                 embedding=emb,
             )
-            for c, emb in zip(chunk_candidates, embeddings)
+            for c, emb, s in zip(chunk_candidates, embeddings, search_texts)
         ]
         DocumentChunk.objects.bulk_create(objs)
-
     def mark_ingested(self, document_id, content_hash, embedding_provider):
         Document.objects.filter(id=document_id).update(
             status="ingested",
