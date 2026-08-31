@@ -28,3 +28,17 @@ class InvalidJobStateTransitionError(DomainError):
 class UnauthorizedActionError(DomainError):
     def __init__(self, message="You are not authorized to perform this action"):
         super().__init__(message)
+class ToolNotAllowedError(DomainError):
+    def __init__(self, agent_name, tool_name):
+        self.agent_name = agent_name
+        self.tool_name = tool_name
+        super().__init__(f"Agent '{agent_name}' is not permitted to call tool '{tool_name}'")
+class MaxIterationsExceededError(DomainError):
+    def __init__(self, max_iterations):
+        self.max_iterations = max_iterations
+        super().__init__(f"Pipeline exceeded max iterations ({max_iterations})")
+class StepTimeoutError(DomainError):
+    def __init__(self, step_name, timeout_seconds):
+        self.step_name = step_name
+        self.timeout_seconds = timeout_seconds
+        super().__init__(f"Step '{step_name}' exceeded timeout of {timeout_seconds}s")

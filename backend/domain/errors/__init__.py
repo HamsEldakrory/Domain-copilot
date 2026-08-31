@@ -5,6 +5,9 @@ from .domain_errors import (
     PolicyVersionNotFoundError,
     InvalidJobStateTransitionError,
     UnauthorizedActionError,
+    ToolNotAllowedError,
+    MaxIterationsExceededError,
+    StepTimeoutError,
 )
 
 __all__ = [
@@ -14,4 +17,7 @@ __all__ = [
     "PolicyVersionNotFoundError",
     "InvalidJobStateTransitionError",
     "UnauthorizedActionError",
+    "ToolNotAllowedError",
+    "MaxIterationsExceededError",
+    "StepTimeoutError",
 ]
