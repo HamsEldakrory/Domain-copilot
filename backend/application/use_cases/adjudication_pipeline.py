@@ -1,7 +1,7 @@
 import concurrent.futures
 from dataclasses import dataclass
 from typing import Callable
-from backend.domain.ports.audit_logger import AuditLogger
+from domain.ports.audit_logger import AuditLogger
 from domain.ports.agent import AgentInput
 from domain.ports.agent_run_recorder import AgentRunRecorder
 from domain.errors import MaxIterationsExceededError, StepTimeoutError

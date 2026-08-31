@@ -1,4 +1,4 @@
-from backend.application.agents.tool_gateway import ToolGateway
+from application.agents.tool_gateway import ToolGateway
 from domain.ports.agent import Agent, AgentInput, AgentOutput
 from domain.ports.llm_provider import LLMProvider, Message
 from domain.ports.tool import Tool
