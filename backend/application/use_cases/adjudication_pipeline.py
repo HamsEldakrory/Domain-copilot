@@ -76,14 +76,11 @@ class AdjudicationPipelineOrchestrator:
             self._run_recorder.record_agent_run(
                 job_id, agent_output.agent_name,
                 input_data={"claim_id": claim_id, "context_keys": list(context.keys())},
-                output_data=agent_output.result,
+                output_data={**agent_output.result, "citations": agent_output.citations},
             )
             steps.append({"agent": agent_output.agent_name, "result": agent_output.result})
             if self._audit_logger:
-                self._audit_logger.log(
-                    job_id, None, f"agent_run:{agent_output.agent_name}",
-                    {"tool_calls": agent_output.tool_calls},
-                )
+                self._audit_logger.log(job_id, None, f"agent_run:{agent_output.agent_name}", {"tool_calls": agent_output.tool_calls})
         try:
             coverage_output = self._run_step_with_controls(
                 self._coverage_matcher, AgentInput(claim_id=claim_id, context=context), "coverage_matcher"
