@@ -7,3 +7,7 @@ class DjangoApprovalRepository(ApprovalRepository):
 
     def update_job_status(self, job_id, status):
         Job.objects.filter(id=job_id).update(status=status)
+
+    def get_job_status(self, job_id):
+        job = Job.objects.filter(id=job_id).first()
+        return job.status if job else None

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from domain.errors.domain_errors import InvalidJobStateTransitionError
 from domain.ports.audit_logger import AuditLogger
 from domain.ports.tool import Tool
 @dataclass
@@ -11,16 +12,10 @@ class ApprovalGateUseCase:
         self._approval_repo = approval_repository
         self._finalize_tool = finalize_tool
         self._audit_logger = audit_logger
-    def decide(
-        self,
-        claim_id: str,
-        job_id: str,
-        approver_id: str,
-        decision: str,  # "approve" | "reject" | "edit"
-        outcome: str | None = None,
-        rationale: str | None = None,
-        comment: str = "",
-    ) -> ApprovalDecisionResult:
+    def decide(self, claim_id, job_id, approver_id, decision, outcome=None, rationale=None, comment=""):
+        current_status = self._approval_repo.get_job_status(job_id)
+        if current_status != "WAITING_APPROVAL":
+            raise InvalidJobStateTransitionError(current_status, "approval_decision")
         self._approval_repo.record_approval(claim_id, approver_id, decision, comment)
         self._audit_logger.log(job_id, approver_id, f"approval_decision:{decision}", {"comment": comment})
 

@@ -8,3 +8,6 @@ class ApprovalRepository(ABC):
     @abstractmethod
     def update_job_status(self, job_id: str, status: str) -> None:
         raise NotImplementedError
+    @abstractmethod
+    def get_job_status(self, job_id: str) -> str | None:
+        raise NotImplementedError
