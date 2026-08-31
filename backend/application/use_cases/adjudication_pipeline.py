@@ -1,10 +1,12 @@
 import concurrent.futures
 from dataclasses import dataclass
 from typing import Callable
+from backend.domain.ports.audit_logger import AuditLogger
 from domain.ports.agent import AgentInput
 from domain.ports.agent_run_recorder import AgentRunRecorder
 from domain.errors import MaxIterationsExceededError, StepTimeoutError
 from application.support.retry import retry_with_backoff
+
 
 MAX_ITERATIONS = 5
 STEP_TIMEOUT_SECONDS = 30
@@ -23,6 +25,7 @@ class AdjudicationPipelineOrchestrator:
         run_recorder: AgentRunRecorder,
         policy_limit_lookup: Callable[[str], tuple[float, float]],
         search_policy_tool=None,
+        audit_logger: AuditLogger | None = None
     ):
         self._coverage_matcher = coverage_matcher
         self._exclusion_analyst = exclusion_analyst
@@ -31,6 +34,7 @@ class AdjudicationPipelineOrchestrator:
         self._policy_limit_lookup = policy_limit_lookup
         self._search_policy_tool = search_policy_tool
         self._iteration_count = 0
+        self._audit_logger = audit_logger
 
     def _run_step_with_controls(self, agent, agent_input, step_name):
         self._iteration_count += 1
@@ -75,7 +79,11 @@ class AdjudicationPipelineOrchestrator:
                 output_data=agent_output.result,
             )
             steps.append({"agent": agent_output.agent_name, "result": agent_output.result})
-
+            if self._audit_logger:
+                self._audit_logger.log(
+                    job_id, None, f"agent_run:{agent_output.agent_name}",
+                    {"tool_calls": agent_output.tool_calls},
+                )
         try:
             coverage_output = self._run_step_with_controls(
                 self._coverage_matcher, AgentInput(claim_id=claim_id, context=context), "coverage_matcher"
@@ -100,7 +108,9 @@ class AdjudicationPipelineOrchestrator:
             )
             record(drafter_output)
 
-            self._run_recorder.complete_job(job_id)
+            self._run_recorder.update_job_status(job_id, "WAITING_APPROVAL")
+            if self._audit_logger:
+                self._audit_logger.log(job_id, None, "pipeline_completed_awaiting_approval", {})
             return PipelineResult(job_id=job_id, steps=steps, final_recommendation=drafter_output.result)
 
         except (MaxIterationsExceededError, StepTimeoutError, Exception):

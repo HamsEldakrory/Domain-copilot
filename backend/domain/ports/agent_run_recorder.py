@@ -11,3 +11,6 @@ class AgentRunRecorder(ABC):
     @abstractmethod
     def complete_job(self, job_id: str) -> None:
         raise NotImplementedError
+    @abstractmethod
+    def update_job_status(self, job_id, status: str) -> None:
+        raise NotImplementedError
