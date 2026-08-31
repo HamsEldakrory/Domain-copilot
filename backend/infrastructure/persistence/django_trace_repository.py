@@ -18,13 +18,13 @@ class DjangoTraceRepository:
                 detail={"actor_id": str(log.actor_id) if log.actor_id else None, "action": log.action, "metadata": log.metadata},
             ))
 
-        for approval in Approval.objects.filter(claim_id=job.claim_id).order_by("created_at"):
+        for approval in Approval.objects.filter(job_id=job_id).order_by("created_at"):
             entries.append(TraceEntry(
                 timestamp=str(approval.created_at), kind="approval",
                 detail={"approver_id": str(approval.approver_id), "status": approval.status, "comment": approval.comment},
             ))
 
-        for decision in Decision.objects.filter(claim_id=job.claim_id).order_by("created_at"):
+        for decision in Decision.objects.filter(job_id=job_id).order_by("created_at"):
             entries.append(TraceEntry(
                 timestamp=str(decision.created_at), kind="decision",
                 detail={"approved_by": str(decision.approved_by_id), "outcome": decision.outcome, "rationale": decision.rationale},
