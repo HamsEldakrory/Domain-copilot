@@ -31,6 +31,8 @@ class PolicyVersion(models.Model):
     version = models.CharField(max_length=50)
     effective_from = models.DateField()
     effective_to = models.DateField(null=True, blank=True)
+    policy_limit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    deductible = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
 
 class Document(models.Model):

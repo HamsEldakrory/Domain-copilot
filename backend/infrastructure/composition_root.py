@@ -12,7 +12,7 @@ PROVIDERS = {
     "openai": OpenAIProvider,
     "ollama": OllamaProvider,
 }
-def _build_llm_provider():
+def build_completion_provider():
     primary_name = os.getenv("LLM_PROVIDER", "openai")
     fallback_name = os.getenv("LLM_FALLBACK_PROVIDER", "ollama")
     primary_cls = PROVIDERS.get(primary_name, OpenAIProvider)
@@ -32,4 +32,4 @@ def build_embedding_provider():
     return PROVIDERS[name]()
 
 def bootstrap():
-    container.register(LLMProvider, _build_llm_provider)
+    container.register(LLMProvider,build_completion_provider)
