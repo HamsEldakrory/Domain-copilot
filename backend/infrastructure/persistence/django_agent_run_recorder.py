@@ -10,3 +10,5 @@ class DjangoAgentRunRecorder(AgentRunRecorder):
 
     def complete_job(self, job_id: str) -> None:
         Job.objects.filter(id=job_id).update(status="COMPLETED")
+    def update_job_status(self, job_id: str, status: str) -> None:
+        Job.objects.filter(id=job_id).update(status=status)
