@@ -99,6 +99,7 @@ class AgentRun(models.Model):
 class Approval(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     claim = models.ForeignKey(Claim, on_delete=models.CASCADE, related_name="approvals")
+    job = models.ForeignKey("Job", on_delete=models.CASCADE, null=True, related_name="approvals")
     approver = models.ForeignKey(User, on_delete=models.PROTECT, related_name="approvals")
     status = models.CharField(max_length=20, blank=True)  # approve / reject / edit
     comment = models.TextField(blank=True)
@@ -108,6 +109,7 @@ class Approval(models.Model):
 class Decision(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     claim = models.ForeignKey(Claim, on_delete=models.CASCADE, related_name="decisions")
+    job = models.ForeignKey("Job", on_delete=models.CASCADE, null=True, related_name="decisions")
     approved_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="decisions")
     outcome = models.CharField(max_length=50)
     rationale = models.TextField(blank=True)

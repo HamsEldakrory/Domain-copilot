@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from infrastructure.composition_root import build_embedding_provider, build_completion_provider
 from infrastructure.retrieval.dense_retriever import DenseRetriever
 from infrastructure.retrieval.keyword_retriever import KeywordRetriever
@@ -28,8 +28,15 @@ class Command(BaseCommand):
         parser.add_argument("claim_id")
         parser.add_argument("--claimed-amount", type=float, default=5000)
         parser.add_argument("--decision", default="approve", choices=["approve", "reject", "edit"])
+        parser.add_argument("--outcome", default=None, help="Required to demonstrate a real edit; differs from the AI recommendation")
+        parser.add_argument("--rationale", default=None)
 
     def handle(self, *args, **options):
+        if options["decision"] == "edit" and (not options["outcome"] or not options["rationale"]):
+                    raise CommandError(
+                        "--decision edit requires both --outcome and --rationale to be provided, "
+                        "so the edit is actually distinguishable from a plain approve."
+                    )
         llm = build_completion_provider()
         retrieve_use_case = RetrieveChunksUseCase(DenseRetriever(build_embedding_provider()), KeywordRetriever())
         get_policy_version = GetPolicyVersionTool()
@@ -45,16 +52,23 @@ class Command(BaseCommand):
             search_policy_tool=search_policy,
         )
         result = orchestrator.run(claim_id=options["claim_id"], claimed_amount=options["claimed_amount"])
-        self.stdout.write(self.style.SUCCESS(f"Job {result.job_id} -> awaiting approval"))
-        self.stdout.write(str(result.final_recommendation))
+        self.stdout.write(self.style.SUCCESS(f"Job {result.job_id} status: WAITING_APPROVAL"))
+        self.stdout.write(f"AI recommendation: {result.final_recommendation}")
         approver = User.objects.filter(username="test_adjuster").first()
+        if not approver:
+            raise CommandError(
+                "No user 'test_adjuster' found. Run: python manage.py create_test_claim first, "
+                "or create a user with that username manually."
+            )
         gate = ApprovalGateUseCase(DjangoApprovalRepository(), FinalizeAdjudicationTool(), audit_logger)
         decision_result = gate.decide(
             claim_id=options["claim_id"], job_id=result.job_id, approver_id=str(approver.id),
-            decision=options["decision"], outcome="approved" if options["decision"] != "reject" else "rejected",
-            rationale="Reviewed via run_approval_demo",
+            decision=options["decision"],
+            outcome=options["outcome"] or ("approved" if options["decision"] != "reject" else "rejected"),
+            rationale=options["rationale"] or "Reviewed via run_approval_demo",
+            original_recommendation=result.final_recommendation,
         )
-        self.stdout.write(self.style.SUCCESS(f"Decision: {decision_result.status}"))
+        self.stdout.write(self.style.SUCCESS(f"Human decision: {decision_result.status}"))
         self.stdout.write(str(decision_result.finalize_result))
         self.stdout.write("\n--- FULL TRACE ---")
         trace = GetRunTraceUseCase(DjangoTraceRepository()).execute(result.job_id)

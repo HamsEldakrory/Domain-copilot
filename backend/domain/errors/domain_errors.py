@@ -42,3 +42,9 @@ class StepTimeoutError(DomainError):
         self.step_name = step_name
         self.timeout_seconds = timeout_seconds
         super().__init__(f"Step '{step_name}' exceeded timeout of {timeout_seconds}s")
+class MissingEditValuesError(DomainError):
+    def __init__(self):
+        super().__init__(
+            "decision='edit' requires original_recommendation, outcome, and rationale "
+            "to all be provided - otherwise there is nothing to distinguish it from approve"
+        )
