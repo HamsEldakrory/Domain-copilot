@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 @dataclass
 class AgentInput:
     claim_id: str
+    job_id: str | None = None
     context: dict = field(default_factory=dict)
 
 

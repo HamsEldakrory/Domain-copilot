@@ -32,8 +32,12 @@ class ApprovalGateUseCase:
             self._audit_logger.log(job_id, approver_id, "recommendation_edited", {
                 "original": original_recommendation, "edited_outcome": outcome, "edited_rationale": rationale,
             })
+
+        self._approval_repo.update_job_status(job_id, "RUNNING")  # finalize_adjudication is itself work
+
         finalize_result = self._finalize_tool.run(
-            claim_id=claim_id, job_id=job_id, approved_by=approver_id, outcome=outcome or "approved", rationale=rationale or comment,
+            claim_id=claim_id, job_id=job_id, approved_by=approver_id,
+            outcome=outcome or "approved", rationale=rationale or comment,
         )
         if finalize_result.error:
             self._audit_logger.log(job_id, approver_id, "finalize_failed", {"error": finalize_result.error})
