@@ -12,7 +12,7 @@ class AdjudicateView(APIView):
         claim_id = str(serializer.validated_data["claim_id"])
         claimed_amount = serializer.validated_data["claimed_amount"]
         job = Job.objects.create(claim_id=claim_id, status="QUEUED")
-        adjudicate_claim_task.delay(claim_id, claimed_amount)
+        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount)
         return Response({"job_id": str(job.id), "status": "QUEUED"}, status=status.HTTP_202_ACCEPTED)
 
 class JobStatusView(APIView):
