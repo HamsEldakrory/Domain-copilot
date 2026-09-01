@@ -21,3 +21,13 @@ class JobStatusView(APIView):
         if not job:
             return Response({"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"job_id": str(job.id), "status": job.status})
+class CancelJobView(APIView):
+    def post(self, request, job_id):
+        job = Job.objects.filter(id=job_id).first()
+        if not job:
+            return Response({"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
+        if job.status in ("COMPLETED", "FAILED", "CANCELLED"):
+            return Response({"error": f"Cannot cancel a job in status {job.status}"}, status=status.HTTP_400_BAD_REQUEST)
+        job.status = "CANCELLED"
+        job.save(update_fields=["status"])
+        return Response({"job_id": str(job.id), "status": "CANCELLED"})
