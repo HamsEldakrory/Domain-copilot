@@ -1,7 +1,8 @@
 from celery import shared_task
-
 @shared_task(bind=True)
-def adjudicate_claim_task(self, claim_id: str, claimed_amount: float):
+def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float):
+    from infrastructure.persistence.models import Job
+    Job.objects.filter(id=job_id).update(status="RUNNING")
     from infrastructure.composition_root import build_embedding_provider, build_completion_provider
     from infrastructure.retrieval.dense_retriever import DenseRetriever
     from infrastructure.retrieval.keyword_retriever import KeywordRetriever
@@ -26,7 +27,7 @@ def adjudicate_claim_task(self, claim_id: str, claimed_amount: float):
         coverage_matcher=CoverageMatcherAgent(llm, get_policy_version, search_policy),
         exclusion_analyst=ExclusionAnalystAgent(llm, search_policy),
         adjudication_drafter=AdjudicationDrafterAgent(llm, CalculatePayoutTool(), DetectAnomalyTool()),
-        run_recorder=DjangoAgentRunRecorder(),
+        run_recorder=DjangoAgentRunRecorder(existing_job_id=job_id),
         policy_limit_lookup=django_policy_limit_lookup,
         audit_logger=DjangoAuditLogger(),
         search_policy_tool=search_policy,
