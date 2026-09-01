@@ -58,21 +58,22 @@ class OpenAIProvider(LLMProvider):
             output_tokens=response.usage.completion_tokens,
         )
 
-    def stream_completion(
-        self,
-        messages: list[Message],
-        tools: list[ToolDefinition] | None = None,
-    ):
+    def stream_completion(self, messages, tools=None):
         stream = self._client.chat.completions.create(
             model=self._model,
             messages=self._to_openai_messages(messages),
             tools=self._to_openai_tools(tools),
             stream=True,
         )
-        for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
+        try:
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+        finally:
+            close = getattr(stream, "close", None)
+            if close:
+                close()
 
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
