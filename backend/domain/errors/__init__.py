@@ -8,7 +8,8 @@ from .domain_errors import (
     ToolNotAllowedError,
     MaxIterationsExceededError,
     StepTimeoutError,
-    MissingEditValuesError
+    MissingEditValuesError,
+    JobCancelledError
 )
 
 __all__ = [
@@ -22,5 +23,5 @@ __all__ = [
     "MaxIterationsExceededError",
     "StepTimeoutError",
     "MissingEditValuesError",
-    
+    "JobCancelledError"
 ]

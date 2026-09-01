@@ -48,3 +48,7 @@ class MissingEditValuesError(DomainError):
             "decision='edit' requires original_recommendation, outcome, and rationale "
             "to all be provided - otherwise there is nothing to distinguish it from approve"
         )
+class JobCancelledError(DomainError):
+    def __init__(self, job_id):
+        self.job_id = job_id
+        super().__init__(f"Job {job_id} was cancelled")
