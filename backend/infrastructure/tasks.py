@@ -2,6 +2,10 @@ from celery import shared_task
 @shared_task(bind=True)
 def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float):
     from infrastructure.persistence.models import Job
+    job = Job.objects.filter(id=job_id).first()
+    if job and job.status in ("COMPLETED", "FAILED", "CANCELLED"):
+        return {"job_id": job_id, "skipped": True, "reason": f"Job already in terminal state {job.status}"}
+
     Job.objects.filter(id=job_id).update(status="RUNNING")
     from infrastructure.composition_root import build_embedding_provider, build_completion_provider
     from infrastructure.retrieval.dense_retriever import DenseRetriever
