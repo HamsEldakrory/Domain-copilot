@@ -2,7 +2,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from presentation.api.permissions import CanAccessClaim
-from presentation.api.serializers import AdjudicateRequestSerializer
 from infrastructure.tasks import adjudicate_claim_task
 from infrastructure.persistence.models import Job
 from application.use_cases.cancel_job import CancelJobUseCase
@@ -49,6 +48,7 @@ from infrastructure.events.redis_job_event_publisher import RedisJobEventPublish
 class CancelJobView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
+        request=None,
         responses={200: CancelResponseSerializer, 400: ErrorResponseSerializer, 404: ErrorResponseSerializer},
         description="Cancel a running or queued job. Cooperative cancellation - stops between pipeline steps and mid-token-stream.",
     )
