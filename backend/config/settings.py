@@ -41,10 +41,23 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt",
+    "djoser",
     "infrastructure",
     "infrastructure.persistence",
     "presentation",
 ]
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
+DJOSER = {
+    "LOGIN_FIELD": "username",
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
