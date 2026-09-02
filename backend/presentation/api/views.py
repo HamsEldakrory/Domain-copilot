@@ -7,8 +7,18 @@ from infrastructure.tasks import adjudicate_claim_task
 from infrastructure.persistence.models import Job
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
+from drf_spectacular.utils import extend_schema
+from presentation.api.serializers import (
+    AdjudicateRequestSerializer, JobSubmittedResponseSerializer,
+    JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,
+)
 class AdjudicateView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        request=AdjudicateRequestSerializer,
+        responses={202: JobSubmittedResponseSerializer, 403: ErrorResponseSerializer},
+        description="Submit a claim for async adjudication. Returns job_id immediately (T7).",
+    )
     def post(self, request):
         serializer = AdjudicateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -20,6 +30,10 @@ class AdjudicateView(APIView):
 
 class JobStatusView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        responses={200: JobStatusResponseSerializer, 404: ErrorResponseSerializer},
+        description="Check the current status of an adjudication job.",
+    )
     def get(self, request, job_id):
         job = Job.objects.filter(id=job_id).first()
         if not job:
@@ -34,6 +48,10 @@ from infrastructure.events.redis_job_event_publisher import RedisJobEventPublish
 
 class CancelJobView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        responses={200: CancelResponseSerializer, 400: ErrorResponseSerializer, 404: ErrorResponseSerializer},
+        description="Cancel a running or queued job. Cooperative cancellation - stops between pipeline steps and mid-token-stream.",
+    )
     def post(self, request, job_id):
         event_publisher = RedisJobEventPublisher()
         use_case = CancelJobUseCase(
