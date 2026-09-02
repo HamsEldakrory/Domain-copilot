@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "djoser",
+    "drf_spectacular",
     "infrastructure",
     "infrastructure.persistence",
     "presentation",
@@ -54,6 +55,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Domain Copilot API",
+    "DESCRIPTION": "Insurance claims adjudication copilot - D2 + T7",
+    "VERSION": "1.0.0",
 }
 DJOSER = {
     "LOGIN_FIELD": "username",
