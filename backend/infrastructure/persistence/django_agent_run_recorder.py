@@ -21,7 +21,7 @@ class DjangoAgentRunRecorder(AgentRunRecorder):
         Job.objects.filter(id=job_id).update(status=status)
         if self._event_publisher:
             self._event_publisher.publish(job_id, "status", {"status": status})
-            
+
     def complete_job(self, job_id: str) -> None:
         Job.objects.filter(id=job_id).update(status="COMPLETED")
         if self._event_publisher:
