@@ -1,7 +1,7 @@
 import time
 import functools
 
-def retry_with_backoff(max_attempts: int = 4, base_delay: float = 1.0):
+def retry_with_backoff(max_attempts: int = 3, base_delay: float = 1.0, dont_retry: tuple = ()):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -9,6 +9,8 @@ def retry_with_backoff(max_attempts: int = 4, base_delay: float = 1.0):
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
+                except dont_retry:
+                    raise
                 except Exception as e:
                     last_exception = e
                     if attempt < max_attempts - 1:

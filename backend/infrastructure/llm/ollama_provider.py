@@ -53,20 +53,21 @@ class OllamaProvider(LLMProvider):
             input_tokens=response.get("prompt_eval_count", 0),
             output_tokens=response.get("eval_count", 0),
         )
-    def stream_completion(
-        self,
-        messages: list[Message],
-        tools: list[ToolDefinition] | None = None,
-    ):
+    def stream_completion(self, messages, tools=None):
         stream = self._client.chat(
             model=self._model,
             messages=self._to_ollama_messages(messages),
             stream=True,
         )
-        for chunk in stream:
-            content = chunk.message.content
-            if content:
-                yield content
+        try:
+            for chunk in stream:
+                content = chunk.message.content
+                if content:
+                    yield content
+        finally:
+            close = getattr(stream, "close", None)
+            if close:
+                close()
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         return [
             self._client.embeddings(model=self._embedding_model, prompt=text)["embedding"]
