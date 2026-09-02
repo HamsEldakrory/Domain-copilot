@@ -1,11 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from presentation.api.permissions import CanAccessClaim
 from presentation.api.serializers import AdjudicateRequestSerializer
 from infrastructure.tasks import adjudicate_claim_task
 from infrastructure.persistence.models import Job
 from application.use_cases.cancel_job import CancelJobUseCase
 class AdjudicateView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     def post(self, request):
         serializer = AdjudicateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -16,6 +18,7 @@ class AdjudicateView(APIView):
         return Response({"job_id": str(job.id), "status": "QUEUED"}, status=status.HTTP_202_ACCEPTED)
 
 class JobStatusView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     def get(self, request, job_id):
         job = Job.objects.filter(id=job_id).first()
         if not job:
@@ -28,6 +31,7 @@ from infrastructure.events.redis_job_event_publisher import RedisJobEventPublish
 
 
 class CancelJobView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     def post(self, request, job_id):
         event_publisher = RedisJobEventPublisher()
         use_case = CancelJobUseCase(

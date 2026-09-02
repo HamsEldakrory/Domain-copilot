@@ -3,12 +3,31 @@ from django.http import StreamingHttpResponse
 from django.conf import settings
 import redis
 from infrastructure.persistence.models import Job
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.http import HttpResponseForbidden
+from domain.policies.claim_access_policy import can_access_claim
+
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
 PAUSE_STATUSES = {"WAITING_APPROVAL"}  # closes this connection but job isn't finished
 
+
 def job_progress_stream(request, job_id):
+    try:
+        user, _ = JWTAuthentication().authenticate(request)
+    except Exception:
+        return HttpResponseForbidden("Authentication required")
+    if not user:
+        return HttpResponseForbidden("Authentication required")
+
+    job = Job.objects.filter(id=job_id).select_related("claim").first()
+    if not job:
+        return HttpResponseForbidden("Job not found")  # deliberately vague, not leaking existence
+    if not can_access_claim(getattr(user, "role", ""), str(user.id), str(job.claim.adjuster_id)):
+        return HttpResponseForbidden("You do not have access to this job")
     r = redis.Redis.from_url(getattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0"))
     stream_key = f"job-events:{job_id}"
+
     def event_stream():
         job = Job.objects.filter(id=job_id).first()
         if not job:
