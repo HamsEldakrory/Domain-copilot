@@ -1,12 +1,6 @@
 from celery import shared_task
 @shared_task(bind=True)
 def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float):
-    from infrastructure.persistence.models import Job
-    job = Job.objects.filter(id=job_id).first()
-    if job and job.status in ("COMPLETED", "FAILED", "CANCELLED"):
-        return {"job_id": job_id, "skipped": True, "reason": f"Job already in terminal state {job.status}"}
-
-    Job.objects.filter(id=job_id).update(status="RUNNING")
     from infrastructure.composition_root import build_embedding_provider, build_completion_provider
     from infrastructure.retrieval.dense_retriever import DenseRetriever
     from infrastructure.retrieval.keyword_retriever import KeywordRetriever
@@ -20,22 +14,40 @@ def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: floa
     from application.agents.adjudication_drafter import AdjudicationDrafterAgent
     from application.use_cases.adjudication_pipeline import AdjudicationPipelineOrchestrator
     from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
-    from infrastructure.persistence.django_audit_logger import DjangoAuditLogger
     from infrastructure.persistence.policy_lookup import django_policy_limit_lookup
+    from infrastructure.persistence.django_cancellation_checker import DjangoCancellationChecker
+    from infrastructure.events.redis_job_event_publisher import RedisJobEventPublisher
+    from domain.job_states import JOB_TERMINAL_STATUSES
 
+    event_publisher = RedisJobEventPublisher()
+    cancellation_checker = DjangoCancellationChecker()
+    run_recorder = DjangoAgentRunRecorder(existing_job_id=job_id, event_publisher=event_publisher)
+
+    if run_recorder.is_cancelled(job_id):
+        return {"job_id": job_id, "skipped": True, "reason": "Job already cancelled before task started"}
+
+    job_status = _get_job_status(job_id)
+    if job_status in JOB_TERMINAL_STATUSES:
+        return {"job_id": job_id, "skipped": True, "reason": f"Job already in terminal state {job_status}"}
+
+    run_recorder.update_job_status(job_id, "RUNNING")
     llm = build_completion_provider()
     retrieve_use_case = RetrieveChunksUseCase(DenseRetriever(build_embedding_provider()), KeywordRetriever())
     get_policy_version = GetPolicyVersionTool()
     search_policy = SearchPolicyTool(retrieve_use_case)
     orchestrator = AdjudicationPipelineOrchestrator(
-        coverage_matcher=CoverageMatcherAgent(llm, get_policy_version, search_policy),
-        exclusion_analyst=ExclusionAnalystAgent(llm, search_policy),
-        adjudication_drafter=AdjudicationDrafterAgent(llm, CalculatePayoutTool(), DetectAnomalyTool()),
-        run_recorder=DjangoAgentRunRecorder(existing_job_id=job_id),
+        coverage_matcher=CoverageMatcherAgent(llm, get_policy_version, search_policy, event_publisher, cancellation_checker),
+        exclusion_analyst=ExclusionAnalystAgent(llm, search_policy, event_publisher, cancellation_checker),
+        adjudication_drafter=AdjudicationDrafterAgent(llm, CalculatePayoutTool(), DetectAnomalyTool(), event_publisher, cancellation_checker),
+        run_recorder=run_recorder,
         policy_limit_lookup=django_policy_limit_lookup,
-        audit_logger=DjangoAuditLogger(),
         search_policy_tool=search_policy,
         get_policy_version_tool=get_policy_version,
     )
     result = orchestrator.run(claim_id=claim_id, claimed_amount=claimed_amount)
     return {"job_id": result.job_id, "degraded": result.degraded}
+
+def _get_job_status(job_id):
+    from infrastructure.persistence.models import Job
+    job = Job.objects.filter(id=job_id).only("status").first()
+    return job.status if job else None

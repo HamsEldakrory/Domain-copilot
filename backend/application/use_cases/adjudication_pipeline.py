@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable
 from domain.ports.agent import AgentInput
 from domain.ports.agent_run_recorder import AgentRunRecorder
-from domain.errors import MaxIterationsExceededError, StepTimeoutError, JobCancelledError
+from domain.errors import MaxIterationsExceededError, StepTimeoutError, JobCancelledError, StepAlreadyClaimedError
 from application.support.retry import retry_with_backoff
 MAX_ITERATIONS = 5
 STEP_TIMEOUT_SECONDS = 30
@@ -37,16 +37,21 @@ class AdjudicationPipelineOrchestrator:
     def _run_step_with_controls(self, agent, agent_input, step_name, job_id):
         if self._run_recorder.is_cancelled(job_id):
             raise JobCancelledError(job_id)
-
-        status, existing_output = self._run_recorder.start_or_resume_step(job_id, step_name)
-        if status == "COMPLETED":
+        claim_status, existing_output = self._run_recorder.start_or_resume_step(job_id, step_name)
+        if claim_status == "COMPLETED":
             from domain.ports.agent import AgentOutput
-            return AgentOutput(agent_name=step_name, result=existing_output, tool_calls=[], citations=existing_output.get("citations", []))
+            output = AgentOutput(
+                agent_name=step_name, result=existing_output,
+                tool_calls=[], citations=existing_output.get("citations", []),
+            )
+            return output, False
 
+        if claim_status == "ALREADY_RUNNING":
+            raise StepAlreadyClaimedError(step_name)
+        # claim_status == "CLAIMED" - proceed to execute
         self._iteration_count += 1
         if self._iteration_count > self._max_iterations:
             raise MaxIterationsExceededError(self._max_iterations)
-
         @retry_with_backoff(max_attempts=3, base_delay=1.0, dont_retry=(JobCancelledError,))
         def _call():
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -58,8 +63,8 @@ class AdjudicationPipelineOrchestrator:
 
         output = _call()
         self._run_recorder.complete_step(job_id, step_name, {**output.result, "citations": output.citations})
-        return output
-
+        return output, True
+    
     def _degrade_to_plain_rag(self, claim_id: str, job_id: str) -> PipelineResult:
         if not self._search_policy_tool:
             return PipelineResult(job_id=job_id, steps=[], final_recommendation={"error": "Pipeline failed and no degradation path available"}, degraded=True)
@@ -87,7 +92,6 @@ class AdjudicationPipelineOrchestrator:
         job_id = self._run_recorder.start_job(claim_id)
         context = {"claimed_amount": claimed_amount}
         steps = []
-
         def record(agent_output):
             self._run_recorder.record_agent_run(
                 job_id, agent_output.agent_name,
@@ -95,12 +99,14 @@ class AdjudicationPipelineOrchestrator:
                 output_data={**agent_output.result, "citations": agent_output.citations},
             )
             steps.append({"agent": agent_output.agent_name, "result": agent_output.result})
-
         try:
-            coverage_output = self._run_step_with_controls(
+            coverage_output, executed = self._run_step_with_controls(
                 self._coverage_matcher, AgentInput(claim_id=claim_id, job_id=job_id, context=context), "coverage_matcher", job_id
             )
-            record(coverage_output)
+            if executed:
+                record(coverage_output)
+            else:
+                steps.append({"agent": coverage_output.agent_name, "result": coverage_output.result, "resumed": True})
             context["coverage_summary"] = coverage_output.result.get("coverage_summary", "")
             context["policy_version_id"] = coverage_output.result.get("policy_version_id")
 
@@ -109,20 +115,32 @@ class AdjudicationPipelineOrchestrator:
                 context["policy_limit"] = limit
                 context["deductible"] = deductible
 
-            exclusion_output = self._run_step_with_controls(
+            exclusion_output, executed = self._run_step_with_controls(
                 self._exclusion_analyst, AgentInput(claim_id=claim_id, job_id=job_id, context=context), "exclusion_analyst", job_id
             )
-            record(exclusion_output)
+            if executed:
+                record(exclusion_output)
+            else:
+                steps.append({"agent": exclusion_output.agent_name, "result": exclusion_output.result, "resumed": True})
             context["exclusion_summary"] = exclusion_output.result.get("exclusion_summary", "")
 
-            drafter_output = self._run_step_with_controls(
+            drafter_output, executed = self._run_step_with_controls(
                 self._adjudication_drafter, AgentInput(claim_id=claim_id, job_id=job_id, context=context), "adjudication_drafter", job_id
             )
-            record(drafter_output)
+            if executed:
+                record(drafter_output)
+            else:
+                steps.append({"agent": drafter_output.agent_name, "result": drafter_output.result, "resumed": True})
 
             self._run_recorder.update_job_status(job_id, "WAITING_APPROVAL")
             return PipelineResult(job_id=job_id, steps=steps, final_recommendation=drafter_output.result)
 
+        except StepAlreadyClaimedError as e:
+            return PipelineResult(
+                job_id=job_id, steps=steps,
+                final_recommendation={"note": f"Skipped - {e}"},
+                degraded=False,
+            )
         except JobCancelledError:
             self._run_recorder.update_job_status(job_id, "CANCELLED")
             return PipelineResult(job_id=job_id, steps=steps, final_recommendation={"note": "Job was cancelled"}, degraded=False)

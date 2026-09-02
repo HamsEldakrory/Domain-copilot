@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
+from domain.job_states import JOB_TERMINAL_STATUSES as TERMINAL_STATUSES
 
 @dataclass
 class CancelJobResult:

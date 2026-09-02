@@ -85,6 +85,10 @@ class JobStep(models.Model):
     status = models.CharField(max_length=30, default="PENDING")
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["job", "name"], name="unique_job_step_per_job"),
+        ]
 
 
 class AgentRun(models.Model):

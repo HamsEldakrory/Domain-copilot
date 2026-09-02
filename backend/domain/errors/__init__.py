@@ -9,7 +9,8 @@ from .domain_errors import (
     MaxIterationsExceededError,
     StepTimeoutError,
     MissingEditValuesError,
-    JobCancelledError
+    JobCancelledError,
+    StepAlreadyClaimedError,
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "MaxIterationsExceededError",
     "StepTimeoutError",
     "MissingEditValuesError",
-    "JobCancelledError"
+    "JobCancelledError",
+    "StepAlreadyClaimedError",
 ]

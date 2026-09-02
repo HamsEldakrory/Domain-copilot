@@ -15,12 +15,11 @@ class AgentRunRecorder(ABC):
     @abstractmethod
     def update_job_status(self, job_id, status: str) -> None:
         raise NotImplementedError
-    @abstractmethod
     
+    @abstractmethod
     def start_or_resume_step(self, job_id: str, step_name: str) -> tuple[str, dict | None]:
-        """Returns (step_status, existing_output_if_completed)."""
         raise NotImplementedError
-
+    
     @abstractmethod
     def complete_step(self, job_id: str, step_name: str, output: dict) -> None:
         raise NotImplementedError

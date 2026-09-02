@@ -52,3 +52,8 @@ class JobCancelledError(DomainError):
     def __init__(self, job_id):
         self.job_id = job_id
         super().__init__(f"Job {job_id} was cancelled")
+
+class StepAlreadyClaimedError(DomainError):
+    def __init__(self, step_name):
+        self.step_name = step_name
+        super().__init__(f"Step '{step_name}' is already being executed by another worker")
