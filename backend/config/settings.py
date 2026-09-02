@@ -55,6 +55,11 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
 }
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Domain Copilot API",
+    "DESCRIPTION": "Insurance claims adjudication copilot - D2 + T7",
+    "VERSION": "1.0.0",
+}
 DJOSER = {
     "LOGIN_FIELD": "username",
 }
