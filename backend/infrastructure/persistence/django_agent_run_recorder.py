@@ -19,7 +19,19 @@ class DjangoAgentRunRecorder(AgentRunRecorder):
 
     def complete_step(self, job_id: str, step_name: str, output: dict) -> None:
         JobStep.objects.filter(job_id=job_id, name=step_name).update(status="COMPLETED", finished_at=timezone.now())
-        
+    def complete_job(self, job_id: str) -> None:
+        Job.objects.filter(id=job_id).update(
+            status="COMPLETED",
+        )
+
+        if self._event_publisher:
+            self._event_publisher.publish(
+                job_id,
+                "status",
+                {"status": "COMPLETED"},
+            )
+
+    
     def update_job_status(self, job_id: str, status: str) -> None:
         Job.objects.filter(id=job_id).update(status=status)
         if self._event_publisher:
