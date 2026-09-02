@@ -6,6 +6,7 @@ from presentation.api.serializers import AdjudicateRequestSerializer
 from infrastructure.tasks import adjudicate_claim_task
 from infrastructure.persistence.models import Job
 from application.use_cases.cancel_job import CancelJobUseCase
+from rest_framework.permissions import IsAuthenticated
 class AdjudicateView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
     def post(self, request):
@@ -24,6 +25,7 @@ class JobStatusView(APIView):
         if not job:
             return Response({"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"job_id": str(job.id), "status": job.status})
+    
 from application.use_cases.cancel_job import CancelJobUseCase
 from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
 from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
