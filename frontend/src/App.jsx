@@ -1,24 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
 import { useSelector } from "react-redux";
+
 import Login from "./pages/Login";
 import Claims from "./pages/Claims";
 import ClaimDetail from "./pages/ClaimDetail";
+import History from "./pages/History";
+import PolicyUpload from "./pages/PolicyUpload";
 
 function RequireAuth({ children }) {
-  const access = useSelector(
-    (state) => state.auth.access
-  );
-  if (!access) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
+  const access = useSelector((state) => state.auth.access);
 
+  if (!access) {
+    return <Navigate to="/login" replace />;
   }
+
   return children;
 }
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -42,6 +41,28 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        <Route
+          path="/history"
+          element={
+            <RequireAuth>
+              <History />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/policies/upload"
+          element={
+            <RequireAuth>
+              <PolicyUpload />
+            </RequireAuth>
+          }
+        />
+
+        <Route path="/" element={<Navigate to="/claims" replace />} />
+
+        <Route path="*" element={<Navigate to="/claims" replace />} />
       </Routes>
     </BrowserRouter>
   );
