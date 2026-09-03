@@ -10,13 +10,13 @@ from rest_framework import status
 from config.settings import CELERY_BROKER_URL
 from presentation.api.permissions import CanAccessClaim, IsManager
 from infrastructure.tasks import adjudicate_claim_task,ingest_document_task
-from infrastructure.persistence.models import Document, Job, User, Policy, PolicyVersion, Document, Client as ClientModel
+from infrastructure.persistence.models import Claim, Document, Job, User, Policy, PolicyVersion, Document, Client as ClientModel
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
 from presentation.api.serializers import (
-    AdjudicateRequestSerializer, JobSubmittedResponseSerializer,CreateAdjusterRequestSerializer,
+    AdjudicateRequestSerializer, ApprovalDecisionRequestSerializer, AskRequestSerializer, ClaimListSerializer, ClaimListSerializer, JobSubmittedResponseSerializer,CreateAdjusterRequestSerializer,
     JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,DocumentStatusSerializer, UserBasicSerializer,
     PolicyUploadSerializer
 )
@@ -155,11 +155,13 @@ class DocumentStatusView(APIView):
         if not doc:
             return Response({"error": "Not found"}, status=404)
         return Response(DocumentStatusSerializer(doc).data)
+
+@extend_schema(exclude=True)
 class HealthView(APIView):
     permission_classes = []
     def get(self, request):
         return Response({"status": "ok"})
-
+@extend_schema(exclude=True)
 class ReadinessView(APIView):
     permission_classes = []
     def get(self, request):
@@ -178,3 +180,90 @@ class ReadinessView(APIView):
             checks["redis"] = f"error: {e}"
         ready = all(v == "ok" for v in checks.values())
         return Response(checks, status=200 if ready else 503)
+class ClaimListView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        operation_id="claims_list",
+        responses=ClaimListSerializer(many=True),
+    )
+    def get(self, request):
+        role = getattr(request.user, "role", "")
+        qs = Claim.objects.all() if role == "MANAGER" else Claim.objects.filter(adjuster=request.user)
+        return Response(ClaimListSerializer(qs.order_by("-created_at"), many=True).data)
+
+class ClaimDetailView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="claim_detail",
+        responses=ClaimListSerializer,
+    )
+    def get(self, request, claim_id):
+        claim = Claim.objects.filter(id=claim_id).first()
+        if not claim:
+            return Response({"error": "Not found"}, status=404)
+        jobs = Job.objects.filter(claim_id=claim_id).order_by("-created_at").values("id", "status", "created_at")
+        return Response({**ClaimListSerializer(claim).data, "jobs": list(jobs)})
+
+class AskView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        operation_id="ask",
+        request=AskRequestSerializer,
+        responses={200: dict},
+    )
+    def post(self, request):
+        serializer = AskRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        from infrastructure.retrieval.dense_retriever import DenseRetriever
+        from infrastructure.retrieval.keyword_retriever import KeywordRetriever
+        from infrastructure.composition_root import build_embedding_provider
+        from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
+        from application.use_cases.format_citation import format_citation
+        use_case = RetrieveChunksUseCase(DenseRetriever(build_embedding_provider()), KeywordRetriever())
+        result = use_case.execute(serializer.validated_data["query"], policy_version_id=str(serializer.validated_data.get("policy_version_id", "")) or None)
+        if result.refused:
+            return Response({"refused": True, "reason": result.refusal_reason})
+        return Response({"refused": False, "citations": [format_citation(c) for c in result.chunks]})
+
+class JobTraceView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="job_trace",
+        description="Return the execution trace for an adjudication job.",
+        responses=dict,
+    )
+    def get(self, request, job_id):
+        from application.use_cases.get_run_trace import GetRunTraceUseCase
+        from infrastructure.persistence.django_trace_repository import DjangoTraceRepository
+        trace = GetRunTraceUseCase(DjangoTraceRepository()).execute(str(job_id))
+        return Response([{"timestamp": e.timestamp, "kind": e.kind, "detail": e.detail} for e in trace])
+
+class ApprovalDecisionView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="approval_decision",
+        request=ApprovalDecisionRequestSerializer,
+        responses={200: dict},
+    )
+    def post(self, request, job_id):
+        serializer = ApprovalDecisionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        from application.use_cases.approval_gate import ApprovalGateUseCase
+        from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
+        from infrastructure.persistence.django_audit_logger import DjangoAuditLogger
+        from infrastructure.tools.finalize_adjudication import FinalizeAdjudicationTool
+        from infrastructure.persistence.models import Job as JobModel
+
+        job = JobModel.objects.get(id=job_id)
+        gate = ApprovalGateUseCase(DjangoApprovalRepository(), FinalizeAdjudicationTool(), DjangoAuditLogger())
+        try:
+            result = gate.decide(
+                claim_id=str(job.claim_id), job_id=str(job_id), approver_id=str(request.user.id),
+                decision=serializer.validated_data["decision"],
+                outcome=serializer.validated_data.get("outcome"),
+                rationale=serializer.validated_data.get("rationale"),
+                comment=serializer.validated_data.get("comment", ""),
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+        return Response({"status": result.status})

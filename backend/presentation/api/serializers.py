@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from infrastructure.persistence.models import Document, User
+from infrastructure.persistence.models import Claim, Document, User
 
 class AdjudicateRequestSerializer(serializers.Serializer):
     claim_id = serializers.UUIDField()
@@ -52,3 +52,18 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = ["id", "filename", "status", "error_message"]
+
+class ClaimListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Claim
+        fields = ["id", "claim_date", "status", "created_at"]
+
+class AskRequestSerializer(serializers.Serializer):
+    query = serializers.CharField()
+    policy_version_id = serializers.UUIDField(required=False)
+
+class ApprovalDecisionRequestSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=["approve", "reject", "edit"])
+    outcome = serializers.CharField(required=False, allow_blank=True)
+    rationale = serializers.CharField(required=False, allow_blank=True)
+    comment = serializers.CharField(required=False, allow_blank=True)
