@@ -8,6 +8,7 @@ from infrastructure.persistence.models import Job, User
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
+from django.db import IntegrityError
 
 class AdjudicateView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
