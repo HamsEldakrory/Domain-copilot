@@ -26,6 +26,5 @@ class CanAccessClaim(BasePermission):
         )
 class IsManager(BasePermission):
     message = "Only managers can perform this action."
-
     def has_permission(self, request, view):
         return getattr(request.user, "role", None) == "MANAGER"
