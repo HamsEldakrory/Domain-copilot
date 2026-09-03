@@ -1,178 +1,215 @@
 import { useState } from "react";
-
-import {
-  Container,
-  Card,
-  Form,
-  Button,
-  Row,
-  Col,
-  Alert,
-} from "react-bootstrap";
-
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-
 import { useUploadPolicy } from "../hooks/usePolicies";
-
 import { useDocumentStatus } from "../hooks/useDocuments";
+import { useCurrentUser } from "../hooks/useAuth";
+import AppShell from "../components/AppShell";
+import StatusBadge from "../components/StatusBadge";
+
+const STEPS = ["pending", "processing", "extracting", "chunked", "ingested"];
+
+function getStepIndex(status) {
+  const i = STEPS.indexOf(status);
+  return i === -1 ? 0 : i;
+}
 
 export default function PolicyUpload() {
-  const { register, handleSubmit } = useForm();
-
+  const { register, handleSubmit, formState: { errors }, reset } = useForm();
   const upload = useUploadPolicy();
-
   const [documentId, setDocumentId] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
+  const user = useSelector((s) => s.auth.user);
+  useCurrentUser(true);
+  const navigate = useNavigate();
 
-  const { data: documentStatus } = useDocumentStatus(
+  const { data: docStatus } = useDocumentStatus(
     documentId,
-    Boolean(documentId),
+    Boolean(documentId)
   );
+
+  if (user && user.role !== "MANAGER") {
+    navigate("/forbidden", { replace: true });
+    return null;
+  }
 
   const onSubmit = (data) => {
     const formData = new FormData();
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (!value) {
-        return;
-      }
-
-      if (key === "file") {
-        formData.append(key, value[0]);
-      } else {
-        formData.append(key, value);
-      }
-    });
+    formData.append("file", data.file[0]);
+    formData.append("policy_number", data.policyNumber);
+    formData.append("version", data.version);
+    formData.append("effective_from", data.effectiveFrom);
 
     upload.mutate(formData, {
-      onSuccess: (response) => {
-        setDocumentId(response.id);
+      onSuccess: (res) => {
+        setDocumentId(res.document_id);
+        setSuccessMsg(`Document uploaded. Tracking ID: ${res.document_id}`);
+        reset();
       },
     });
   };
 
+  const currentStatus = docStatus?.status ?? null;
+  const isFailed   = currentStatus === "failed";
+  const isIngested = currentStatus === "ingested";
+  const stepIdx    = getStepIndex(currentStatus);
+
   return (
-    <Container
-      className="mt-4"
-      style={{
-        maxWidth: 600,
-      }}
-    >
-      <Card body>
-        <h5>Upload New Policy (Manager only)</h5>
+    <AppShell title="Upload Policy">
+      <div className="page-header">
+        <div>
+          <div className="page-title">Upload Policy Document</div>
+          <div className="page-subtitle">Manager-only · PDF or DOCX policy documents</div>
+        </div>
+      </div>
 
-        <Form onSubmit={handleSubmit(onSubmit)}>
-          <Form.Group className="mb-2">
-            <Form.Label>File (.pdf/.docx)</Form.Label>
+      <div style={{ maxWidth: 600 }}>
+        <div className="card mb-16">
+          <div className="card-header">
+            <span className="card-title">Upload New Policy</span>
+          </div>
+          <div className="card-body">
+            <form onSubmit={handleSubmit(onSubmit)} encType="multipart/form-data">
+              <div className="form-row mb-16">
+                <div className="form-group mb-0">
+                  <label className="form-label required">Policy Number</label>
+                  <input
+                    className={`form-control${errors.policyNumber ? " is-error" : ""}`}
+                    placeholder="e.g. auto_comp"
+                    {...register("policyNumber", { required: "Required" })}
+                  />
+                  {errors.policyNumber && (
+                    <div className="form-error">{errors.policyNumber.message}</div>
+                  )}
+                </div>
+                <div className="form-group mb-0">
+                  <label className="form-label required">Version</label>
+                  <input
+                    className={`form-control${errors.version ? " is-error" : ""}`}
+                    placeholder="e.g. v1.0"
+                    {...register("version", { required: "Required" })}
+                  />
+                  {errors.version && (
+                    <div className="form-error">{errors.version.message}</div>
+                  )}
+                </div>
+              </div>
 
-            <Form.Control
-              type="file"
-              {...register("file", {
-                required: true,
-              })}
-            />
-          </Form.Group>
-
-          <Row>
-            <Col>
-              <Form.Group className="mb-2">
-                <Form.Label>Policy Number</Form.Label>
-
-                <Form.Control
-                  {...register("policy_number", {
-                    required: true,
-                  })}
-                />
-              </Form.Group>
-            </Col>
-
-            <Col>
-              <Form.Group className="mb-2">
-                <Form.Label>Version</Form.Label>
-
-                <Form.Control
-                  {...register("version", {
-                    required: true,
-                  })}
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-
-          <Row>
-            <Col>
-              <Form.Group className="mb-2">
-                <Form.Label>Effective From</Form.Label>
-
-                <Form.Control
+              <div className="form-group">
+                <label className="form-label required">Effective From</label>
+                <input
                   type="date"
-                  {...register("effective_from", {
-                    required: true,
+                  className={`form-control${errors.effectiveFrom ? " is-error" : ""}`}
+                  {...register("effectiveFrom", { required: "Required" })}
+                />
+                {errors.effectiveFrom && (
+                  <div className="form-error">{errors.effectiveFrom.message}</div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">File (PDF or DOCX)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.docx"
+                  className={`form-control${errors.file ? " is-error" : ""}`}
+                  {...register("file", {
+                    required: "A file is required",
+                    validate: (files) => {
+                      const f = files?.[0];
+                      if (!f) return "Required";
+                      if (!f.name.match(/\.(pdf|docx)$/i)) {
+                        return "Only PDF or DOCX files allowed";
+                      }
+                      return true;
+                    },
                   })}
                 />
-              </Form.Group>
-            </Col>
+                {errors.file && (
+                  <div className="form-error">{errors.file.message}</div>
+                )}
+              </div>
 
-            <Col>
-              <Form.Group className="mb-2">
-                <Form.Label>Effective To</Form.Label>
+              {upload.isError && (
+                <div className="alert alert-error mb-16">
+                  {upload.error?.response?.data?.error ??
+                    upload.error?.response?.data?.detail ??
+                    "Upload failed. Check your inputs."}
+                </div>
+              )}
 
-                <Form.Control type="date" {...register("effective_to")} />
-              </Form.Group>
-            </Col>
-          </Row>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={upload.isPending}
+              >
+                {upload.isPending ? (
+                  <><span className="spinner" /> Uploading…</>
+                ) : (
+                  "Upload Policy"
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
 
-          <Row>
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Policy Limit</Form.Label>
+        {documentId && (
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Ingestion Status</span>
+              {currentStatus && <StatusBadge status={currentStatus} />}
+            </div>
+            <div className="card-body">
+              {successMsg && (
+                <div className="alert alert-success mb-16">{successMsg}</div>
+              )}
 
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  {...register("policy_limit", {
-                    required: true,
+              {currentStatus && !isFailed && (
+                <div className="progress-steps mb-16">
+                  {STEPS.map((step, i) => {
+                    const isDone   = i < stepIdx || isIngested;
+                    const isActive = i === stepIdx && !isIngested;
+                    return (
+                      <div
+                        key={step}
+                        className={`progress-step${isDone ? " done" : ""}${isActive ? " active" : ""}`}
+                      >
+                        <div className="progress-step-dot">
+                          {isDone ? "✓" : i + 1}
+                        </div>
+                        <div className="progress-step-label">{step}</div>
+                      </div>
+                    );
                   })}
-                />
-              </Form.Group>
-            </Col>
+                </div>
+              )}
 
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Deductible</Form.Label>
+              {isFailed && (
+                <div className="alert alert-error">
+                  Ingestion failed. Please check the document and try again.
+                </div>
+              )}
 
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  {...register("deductible", {
-                    required: true,
-                  })}
-                />
-              </Form.Group>
-            </Col>
-          </Row>
+              {isIngested && (
+                <div className="alert alert-success">
+                  ✓ Policy successfully ingested and ready for adjudication.
+                </div>
+              )}
 
-          <Button type="submit" disabled={upload.isPending}>
-            {upload.isPending ? "Uploading..." : "Upload"}
-          </Button>
-        </Form>
+              {!isIngested && !isFailed && currentStatus && (
+                <div className="alert alert-info">
+                  <span className="spinner" style={{ width: 14, height: 14, borderWidth: 1.5 }} />
+                  &nbsp; Processing… Polling every 2 seconds.
+                </div>
+              )}
 
-        {documentId && documentStatus && (
-          <Alert
-            className="mt-3"
-            variant={
-              documentStatus.status === "ingested"
-                ? "success"
-                : documentStatus.status === "failed"
-                  ? "danger"
-                  : "info"
-            }
-          >
-            Status: {documentStatus.status}
-            {documentStatus.error_message &&
-              ` — ${documentStatus.error_message}`}
-          </Alert>
+              <div className="detail-field-label mt-12">Document ID</div>
+              <div className="detail-field-value font-mono text-xs">{documentId}</div>
+            </div>
+          </div>
         )}
-      </Card>
-    </Container>
+      </div>
+    </AppShell>
   );
 }
