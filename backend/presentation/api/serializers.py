@@ -15,6 +15,20 @@ class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email", "role"]
+class JobSubmittedResponseSerializer(serializers.Serializer):
+    job_id = serializers.UUIDField()
+    status = serializers.CharField()
+
+
+class JobStatusResponseSerializer(serializers.Serializer):
+    job_id = serializers.UUIDField()
+    status = serializers.CharField()
+
+
+class CancelResponseSerializer(serializers.Serializer):
+    job_id = serializers.UUIDField()
+    status = serializers.CharField()
+
 
 class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
