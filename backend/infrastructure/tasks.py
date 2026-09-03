@@ -52,3 +52,24 @@ def _get_job_status(job_id):
     from infrastructure.persistence.models import Job
     job = Job.objects.filter(id=job_id).only("status").first()
     return job.status if job else None
+
+@shared_task
+def ingest_document_task(document_id: str, file_path: str, file_extension: str):
+    from infrastructure.persistence.django_chunk_repository import DjangoChunkRepository
+    from infrastructure.ingestion.pdf_extractor import PdfExtractor
+    from infrastructure.ingestion.docx_extractor import DocxExtractor
+    from infrastructure.ingestion.section_chunker import NumberedHeadingChunker
+    from infrastructure.composition_root import build_embedding_provider
+    from application.use_cases.ingest_document import IngestDocumentUseCase
+
+    extractor = PdfExtractor() if file_extension == "pdf" else DocxExtractor()
+    embedding_provider_name = __import__("os").getenv("EMBEDDING_PROVIDER", "openai")
+
+    use_case = IngestDocumentUseCase(
+        chunker=NumberedHeadingChunker(),
+        llm_provider=build_embedding_provider(),
+        chunk_repository=DjangoChunkRepository(),
+        embedding_provider_name=embedding_provider_name,
+    )
+    result = use_case.execute(document_id, file_path, extractor)
+    return {"document_id": document_id, "status": result.status, "chunk_count": result.chunk_count}
