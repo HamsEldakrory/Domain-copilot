@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getDocumentStatus } from "../api/documents";
+import { getDocumentStatus, getDocumentsList } from "../api/documents";
+
 export const useDocumentStatus = (documentId, enabled = false) => {
   return useQuery({
     queryKey: ["document", documentId],
@@ -12,5 +13,13 @@ export const useDocumentStatus = (documentId, enabled = false) => {
       }
       return 2000;
     },
+  });
+};
+
+export const useDocuments = () => {
+  return useQuery({
+    queryKey: ["documents"],
+    queryFn: getDocumentsList,
+    refetchInterval: 3000,
   });
 };
