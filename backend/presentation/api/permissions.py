@@ -24,3 +24,7 @@ class CanAccessClaim(BasePermission):
             user_id=str(request.user.id),
             claim_adjuster_id=str(claim.adjuster_id),
         )
+class IsManager(BasePermission):
+    message = "Only managers can perform this action."
+    def has_permission(self, request, view):
+        return getattr(request.user, "role", None) == "MANAGER"

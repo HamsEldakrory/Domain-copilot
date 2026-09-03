@@ -65,7 +65,13 @@ SPECTACULAR_SETTINGS = {
 DJOSER = {
     "LOGIN_FIELD": "username",
 }
+from datetime import timedelta
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=24),  # dev/testing convenience - still expires
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+}
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

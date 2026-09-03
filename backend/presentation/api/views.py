@@ -1,12 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from presentation.api.permissions import CanAccessClaim, IsManager
+from presentation.api.serializers import AdjudicateRequestSerializer, CreateAdjusterRequestSerializer, UserBasicSerializer, ErrorResponseSerializer
 from presentation.api.permissions import CanAccessClaim
 from infrastructure.tasks import adjudicate_claim_task
-from infrastructure.persistence.models import Job
+from infrastructure.persistence.models import Job, User
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
+from django.db import IntegrityError
+
 from presentation.api.serializers import (
     AdjudicateRequestSerializer, JobSubmittedResponseSerializer,
     JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,
@@ -26,6 +30,40 @@ class AdjudicateView(APIView):
         job = Job.objects.create(claim_id=claim_id, status="QUEUED")
         adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount)
         return Response({"job_id": str(job.id), "status": "QUEUED"}, status=status.HTTP_202_ACCEPTED)
+class CreateAdjusterView(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+    @extend_schema(
+        request=CreateAdjusterRequestSerializer,
+        responses={201: UserBasicSerializer, 400: ErrorResponseSerializer, 403: ErrorResponseSerializer},
+        description="Manager-only: create a new Adjuster account. Role is always ADJUSTER, regardless of any role value sent - this endpoint cannot be used to create another Manager.",
+    )
+    def post(self, request):
+        serializer = CreateAdjusterRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if User.objects.filter(username=serializer.validated_data["username"]).exists():
+            return Response({"error": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User(
+            username=serializer.validated_data["username"],
+            email=serializer.validated_data.get("email", ""),
+            role="ADJUSTER",  # hardcoded, deliberately ignores any "role" the caller might send
+        )
+        user.set_password(serializer.validated_data["password"])
+        user.save()
+
+        return Response(UserBasicSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: UserBasicSerializer},
+        description="Return the authenticated user's own info. Uses request.user only - no id parameter accepted.",
+    )
+    def get(self, request):
+        return Response(UserBasicSerializer(request.user).data)
 
 class JobStatusView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
