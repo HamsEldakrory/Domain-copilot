@@ -119,6 +119,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenVerify'
           description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: Return the authenticated user's own info. Uses request.user only
+        - no id parameter accepted.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBasic'
+          description: ''
   /api/jobs/{job_id}/:
     get:
       operationId: jobs_retrieve
@@ -328,6 +344,47 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/users/adjusters/:
+    post:
+      operationId: users_adjusters_create
+      description: 'Manager-only: create a new Adjuster account. Role is always ADJUSTER,
+        regardless of any role value sent - this endpoint cannot be used to create
+        another Manager.'
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdjusterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateAdjusterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateAdjusterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBasic'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
 components:
   schemas:
     AdjudicateRequest:
@@ -354,6 +411,25 @@ components:
       required:
       - job_id
       - status
+    CreateAdjusterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - password
+      - username
     ErrorResponse:
       type: object
       properties:
@@ -383,6 +459,14 @@ components:
       required:
       - job_id
       - status
+    RoleEnum:
+      enum:
+      - ADJUSTER
+      - MANAGER
+      type: string
+      description: |-
+        * `ADJUSTER` - Adjuster
+        * `MANAGER` - Manager
     TokenObtainPair:
       type: object
       properties:
@@ -423,6 +507,31 @@ components:
           writeOnly: true
       required:
       - token
+    UserBasic:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          title: Email address
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - id
+      - username
   securitySchemes:
     jwtAuth:
       type: http
