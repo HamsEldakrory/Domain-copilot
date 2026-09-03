@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Iterator
+from typing import  Protocol
 
 @dataclass
 class Message:
@@ -27,6 +27,14 @@ class CompletionResult:
     input_tokens: int = 0
     output_tokens: int = 0
 
+class TokenStream(Protocol):
+    input_tokens: int
+    output_tokens: int
+
+    def __iter__(self): ...
+    def __next__(self) -> str: ...
+    def close(self) -> None: ...
+
 
 class LLMProvider(ABC):
     # Port (interface) for any LLM provider. Application/domain code depends
@@ -47,8 +55,8 @@ class LLMProvider(ABC):
         self,
         messages: list[Message],
         tools: list[ToolDefinition] | None = None,
-    ) -> Iterator[str]:
-        #Same as completion, but yields the response incrementally (token by token or chunk by chunk) instead of all at once.
+    ) -> TokenStream:
+     
         raise NotImplementedError
     @abstractmethod
     def embeddings(self, texts: list[str]) -> list[list[float]]:

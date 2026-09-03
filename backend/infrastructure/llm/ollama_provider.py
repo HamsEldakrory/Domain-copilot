@@ -8,6 +8,31 @@ from domain.ports.llm_provider import (
     ToolCall,
     CompletionResult,
 )
+class OllamaTokenStream:
+    def __init__(self, raw_stream):
+        self._raw_stream = raw_stream
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while True:
+            chunk = next(self._raw_stream)
+            done = getattr(chunk, "done", False)
+            if done:
+                self.input_tokens = getattr(chunk, "prompt_eval_count", 0) or 0
+                self.output_tokens = getattr(chunk, "eval_count", 0) or 0
+            message = getattr(chunk, "message", None)
+            content = getattr(message, "content", None) if message else None
+            if content:
+                return content
+
+    def close(self):
+        close = getattr(self._raw_stream, "close", None)
+        if close:
+            close()
 
 class OllamaProvider(LLMProvider):
     def __init__(self, model: str | None = None, embedding_model: str | None = None, host: str | None = None):
@@ -54,20 +79,12 @@ class OllamaProvider(LLMProvider):
             output_tokens=response.get("eval_count", 0),
         )
     def stream_completion(self, messages, tools=None):
-        stream = self._client.chat(
+        raw_stream = self._client.chat(
             model=self._model,
             messages=self._to_ollama_messages(messages),
             stream=True,
         )
-        try:
-            for chunk in stream:
-                content = chunk.message.content
-                if content:
-                    yield content
-        finally:
-            close = getattr(stream, "close", None)
-            if close:
-                close()
+        return OllamaTokenStream(raw_stream)
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         return [
             self._client.embeddings(model=self._embedding_model, prompt=text)["embedding"]

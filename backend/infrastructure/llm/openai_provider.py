@@ -9,6 +9,28 @@ from domain.ports.llm_provider import (
     CompletionResult,
 )
 
+class OpenAITokenStream:
+    def __init__(self, raw_stream):
+        self._raw_stream = raw_stream
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while True:
+            chunk = next(self._raw_stream)  # raises StopIteration when exhausted
+            if getattr(chunk, "usage", None):
+                self.input_tokens = chunk.usage.prompt_tokens
+                self.output_tokens = chunk.usage.completion_tokens
+            if chunk.choices and chunk.choices[0].delta.content:
+                return chunk.choices[0].delta.content
+
+    def close(self):
+        close = getattr(self._raw_stream, "close", None)
+        if close:
+            close()
 
 class OpenAIProvider(LLMProvider):
     def __init__(self, api_key: str | None = None, model: str | None = None):
@@ -59,21 +81,14 @@ class OpenAIProvider(LLMProvider):
         )
 
     def stream_completion(self, messages, tools=None):
-        stream = self._client.chat.completions.create(
+        raw_stream = self._client.chat.completions.create(
             model=self._model,
             messages=self._to_openai_messages(messages),
             tools=self._to_openai_tools(tools),
             stream=True,
+            stream_options={"include_usage": True},
         )
-        try:
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    yield delta.content
-        finally:
-            close = getattr(stream, "close", None)
-            if close:
-                close()
+        return OpenAITokenStream(raw_stream)
 
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
