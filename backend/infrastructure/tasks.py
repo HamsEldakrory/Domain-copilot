@@ -1,6 +1,6 @@
 from celery import shared_task
 @shared_task(bind=True)
-def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float):
+def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float, correlation_id: str | None = None, deductible_override: float | None = None):
     from infrastructure.composition_root import build_embedding_provider, build_completion_provider
     from infrastructure.retrieval.dense_retriever import DenseRetriever
     from infrastructure.retrieval.keyword_retriever import KeywordRetriever
@@ -43,8 +43,9 @@ def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: floa
         policy_limit_lookup=django_policy_limit_lookup,
         search_policy_tool=search_policy,
         get_policy_version_tool=get_policy_version,
+        correlation_id=correlation_id,
     )
-    result = orchestrator.run(claim_id=claim_id, claimed_amount=claimed_amount)
+    result = orchestrator.run(claim_id=claim_id, claimed_amount=claimed_amount, deductible_override=deductible_override)
     return {"job_id": result.job_id, "degraded": result.degraded}
 
 def _get_job_status(job_id):

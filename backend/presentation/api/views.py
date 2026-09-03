@@ -1,3 +1,6 @@
+from statistics import correlation
+
+from celery import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -27,9 +30,11 @@ class AdjudicateView(APIView):
         serializer.is_valid(raise_exception=True)
         claim_id = str(serializer.validated_data["claim_id"])
         claimed_amount = serializer.validated_data["claimed_amount"]
+        deductible_override = serializer.validated_data.get("deductible_override")
+        correlation_id=getattr(request, "correlation_id", str(uuid.uuid4()))
         job = Job.objects.create(claim_id=claim_id, status="QUEUED")
-        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount)
-        return Response({"job_id": str(job.id), "status": "QUEUED"}, status=status.HTTP_202_ACCEPTED)
+        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount, correlation_id,deductible_override)
+        return Response({"job_id": str(job.id), "status": "QUEUED", "correlation_id": correlation_id}, status=status.HTTP_202_ACCEPTED)
 class CreateAdjusterView(APIView):
     permission_classes = [IsAuthenticated, IsManager]
     @extend_schema(
@@ -101,3 +106,26 @@ class CancelJobView(APIView):
             code = status.HTTP_404_NOT_FOUND if result.error == "Job not found" else status.HTTP_400_BAD_REQUEST
             return Response({"error": result.error}, status=code)
         return Response({"job_id": str(job_id), "status": "CANCELLED"})
+class HealthView(APIView):
+    permission_classes = []
+    def get(self, request):
+        return Response({"status": "ok"})
+
+class ReadinessView(APIView):
+    permission_classes = []
+    def get(self, request):
+        from django.db import connection
+        import redis
+        checks = {}
+        try:
+            connection.cursor()
+            checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {e}"
+        try:
+            redis.Redis.from_url(settings.CELERY_BROKER_URL).ping()
+            checks["redis"] = "ok"
+        except Exception as e:
+            checks["redis"] = f"error: {e}"
+        ready = all(v == "ok" for v in checks.values())
+        return Response(checks, status=200 if ready else 503)

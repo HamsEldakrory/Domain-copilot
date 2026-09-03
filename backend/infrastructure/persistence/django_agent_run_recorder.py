@@ -14,9 +14,11 @@ class DjangoAgentRunRecorder(AgentRunRecorder):
         job = Job.objects.create(claim_id=claim_id, status="RUNNING")
         return str(job.id)
 
-    def record_agent_run(self, job_id, agent_name, input_data, output_data):
-        AgentRun.objects.create(job_id=job_id, agent_name=agent_name, input_data=input_data, output_data=output_data)
-
+    def record_agent_run(self, job_id, agent_name, input_data, output_data, input_tokens=0, output_tokens=0, correlation_id=None):
+        AgentRun.objects.create(
+            job_id=job_id, agent_name=agent_name, input_data=input_data, output_data=output_data,
+            input_tokens=input_tokens, output_tokens=output_tokens, correlation_id=correlation_id or "",
+        )
     def update_job_status(self, job_id: str, status: str) -> None:
         Job.objects.filter(id=job_id).update(status=status)
         if self._event_publisher:

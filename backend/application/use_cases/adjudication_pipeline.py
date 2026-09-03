@@ -23,6 +23,7 @@ class AdjudicationPipelineOrchestrator:
         search_policy_tool=None,
         get_policy_version_tool=None,
         max_iterations: int = MAX_ITERATIONS,
+        correlation_id: str | None = None
     ):
         self._coverage_matcher = coverage_matcher
         self._exclusion_analyst = exclusion_analyst
@@ -33,7 +34,7 @@ class AdjudicationPipelineOrchestrator:
         self._get_policy_version_tool = get_policy_version_tool
         self._max_iterations = max_iterations
         self._iteration_count = 0
-
+        self._correlation_id = correlation_id
     def _run_step_with_controls(self, agent, agent_input, step_name, job_id):
         if self._run_recorder.is_cancelled(job_id):
             raise JobCancelledError(job_id)
@@ -76,7 +77,7 @@ class AdjudicationPipelineOrchestrator:
                 policy_version_id = version_result.output.get("policy_version_id")
 
         result = self._search_policy_tool.run(query="policy overview coverage", policy_version_id=policy_version_id)
-        self._run_recorder.record_agent_run(job_id, "plain_rag_fallback", input_data={"claim_id": claim_id, "policy_version_id": policy_version_id}, output_data=result.output)
+        self._run_recorder.record_agent_run(job_id, "plain_rag_fallback", input_data={"claim_id": claim_id, "policy_version_id": policy_version_id}, output_data=result.output, correlation_id=self._correlation_id)
         self._run_recorder.update_job_status(job_id, "WAITING_APPROVAL")
         return PipelineResult(
             job_id=job_id,
@@ -97,6 +98,9 @@ class AdjudicationPipelineOrchestrator:
                 job_id, agent_output.agent_name,
                 input_data={"claim_id": claim_id, "context_keys": list(context.keys())},
                 output_data={**agent_output.result, "citations": agent_output.citations},
+                input_tokens=agent_output.input_tokens,
+                output_tokens=agent_output.output_tokens,
+                correlation_id=self._correlation_id,
             )
             steps.append({"agent": agent_output.agent_name, "result": agent_output.result})
         try:
