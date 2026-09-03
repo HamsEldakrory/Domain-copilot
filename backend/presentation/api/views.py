@@ -155,11 +155,13 @@ class DocumentStatusView(APIView):
         if not doc:
             return Response({"error": "Not found"}, status=404)
         return Response(DocumentStatusSerializer(doc).data)
+
+@extend_schema(exclude=True)
 class HealthView(APIView):
     permission_classes = []
     def get(self, request):
         return Response({"status": "ok"})
-
+@extend_schema(exclude=True)
 class ReadinessView(APIView):
     permission_classes = []
     def get(self, request):
@@ -179,6 +181,11 @@ class ReadinessView(APIView):
         ready = all(v == "ok" for v in checks.values())
         return Response(checks, status=200 if ready else 503)
 class ClaimListView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        operation_id="claims_list",
+        responses=ClaimListSerializer(many=True),
+    )
     def get(self, request):
         role = getattr(request.user, "role", "")
         qs = Claim.objects.all() if role == "MANAGER" else Claim.objects.filter(adjuster=request.user)
@@ -186,6 +193,10 @@ class ClaimListView(APIView):
 
 class ClaimDetailView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="claim_detail",
+        responses=ClaimListSerializer,
+    )
     def get(self, request, claim_id):
         claim = Claim.objects.filter(id=claim_id).first()
         if not claim:
@@ -194,6 +205,12 @@ class ClaimDetailView(APIView):
         return Response({**ClaimListSerializer(claim).data, "jobs": list(jobs)})
 
 class AskView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        operation_id="ask",
+        request=AskRequestSerializer,
+        responses={200: dict},
+    )
     def post(self, request):
         serializer = AskRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -210,6 +227,11 @@ class AskView(APIView):
 
 class JobTraceView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="job_trace",
+        description="Return the execution trace for an adjudication job.",
+        responses=dict,
+    )
     def get(self, request, job_id):
         from application.use_cases.get_run_trace import GetRunTraceUseCase
         from infrastructure.persistence.django_trace_repository import DjangoTraceRepository
@@ -218,6 +240,11 @@ class JobTraceView(APIView):
 
 class ApprovalDecisionView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
+    @extend_schema(
+        operation_id="approval_decision",
+        request=ApprovalDecisionRequestSerializer,
+        responses={200: dict},
+    )
     def post(self, request, job_id):
         serializer = ApprovalDecisionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

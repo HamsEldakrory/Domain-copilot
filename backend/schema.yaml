@@ -135,6 +135,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserBasic'
           description: ''
+  /api/claims/:
+    get:
+      operationId: claims_list
+      tags:
+      - claims
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClaimList'
+          description: ''
+  /api/claims/{claim_id}/:
+    get:
+      operationId: claim_detail
+      parameters:
+      - in: path
+        name: claim_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - claims
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimList'
+          description: ''
+  /api/claims/{claim_id}/ask/:
+    post:
+      operationId: ask
+      parameters:
+      - in: path
+        name: claim_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - claims
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/documents/{document_id}/:
+    get:
+      operationId: documents_retrieve
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentStatus'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
   /api/jobs/{job_id}/:
     get:
       operationId: jobs_retrieve
@@ -162,6 +260,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+  /api/jobs/{job_id}/approve/:
+    post:
+      operationId: approval_decision
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - jobs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /api/jobs/{job_id}/cancel/:
     post:
@@ -193,6 +325,66 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+  /api/jobs/{job_id}/trace/:
+    get:
+      operationId: job_trace
+      description: Return the execution trace for an adjudication job.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - jobs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/policies/upload/:
+    post:
+      operationId: policies_upload_create
+      description: 'Manager-only: upload a new policy document. Limit/deductible set
+        directly here, closing the manual-sync gap from ADR-008. Ingestion runs async.'
+      tags:
+      - policies
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PolicyUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PolicyUpload'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentStatus'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+        '400':
           content:
             application/json:
               schema:
@@ -397,9 +589,37 @@ components:
           type: number
           format: double
           minimum: 0
+        deductible_override:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
       required:
       - claim_id
       - claimed_amount
+    ApprovalDecisionRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+        outcome:
+          type: string
+        rationale:
+          type: string
+        comment:
+          type: string
+      required:
+      - decision
+    AskRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        policy_version_id:
+          type: string
+          format: uuid
+      required:
+      - query
     CancelResponse:
       type: object
       properties:
@@ -411,6 +631,27 @@ components:
       required:
       - job_id
       - status
+    ClaimList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        claim_date:
+          type: string
+          format: date
+        status:
+          type: string
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - claim_date
+      - created_at
+      - id
     CreateAdjusterRequest:
       type: object
       properties:
@@ -430,6 +671,34 @@ components:
       required:
       - password
       - username
+    DecisionEnum:
+      enum:
+      - approve
+      - reject
+      - edit
+      type: string
+      description: |-
+        * `approve` - approve
+        * `reject` - reject
+        * `edit` - edit
+    DocumentStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        filename:
+          type: string
+          maxLength: 255
+        status:
+          type: string
+          maxLength: 50
+        error_message:
+          type: string
+      required:
+      - filename
+      - id
     ErrorResponse:
       type: object
       properties:
@@ -459,6 +728,38 @@ components:
       required:
       - job_id
       - status
+    PolicyUpload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        policy_number:
+          type: string
+        version:
+          type: string
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type: string
+          format: date
+          nullable: true
+        policy_limit:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        deductible:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+      required:
+      - deductible
+      - effective_from
+      - file
+      - policy_limit
+      - policy_number
+      - version
     RoleEnum:
       enum:
       - ADJUSTER
