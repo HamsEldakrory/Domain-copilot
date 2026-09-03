@@ -1,22 +1,24 @@
+import os
 from statistics import correlation
-
 from celery import uuid
-from rest_framework.views import APIView
+from django.core.files.storage import default_storage
+from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import FormParser
+from rest_framework.views import APIView, settings
 from rest_framework.response import Response
 from rest_framework import status
+from config.settings import CELERY_BROKER_URL
 from presentation.api.permissions import CanAccessClaim, IsManager
-from presentation.api.serializers import AdjudicateRequestSerializer, CreateAdjusterRequestSerializer, UserBasicSerializer, ErrorResponseSerializer
-from presentation.api.permissions import CanAccessClaim
-from infrastructure.tasks import adjudicate_claim_task
-from infrastructure.persistence.models import Job, User
+from infrastructure.tasks import adjudicate_claim_task,ingest_document_task
+from infrastructure.persistence.models import Document, Job, User, Policy, PolicyVersion, Document, Client as ClientModel
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
-
 from presentation.api.serializers import (
-    AdjudicateRequestSerializer, JobSubmittedResponseSerializer,
-    JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,
+    AdjudicateRequestSerializer, JobSubmittedResponseSerializer,CreateAdjusterRequestSerializer,
+    JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,DocumentStatusSerializer, UserBasicSerializer,
+    PolicyUploadSerializer
 )
 class AdjudicateView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
@@ -106,6 +108,53 @@ class CancelJobView(APIView):
             code = status.HTTP_404_NOT_FOUND if result.error == "Job not found" else status.HTTP_400_BAD_REQUEST
             return Response({"error": result.error}, status=code)
         return Response({"job_id": str(job_id), "status": "CANCELLED"})
+
+class PolicyUploadView(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        request=PolicyUploadSerializer,
+        responses={202: DocumentStatusSerializer, 403: ErrorResponseSerializer, 400: ErrorResponseSerializer},
+        description="Manager-only: upload a new policy document. Limit/deductible set directly here, closing the manual-sync gap from ADR-008. Ingestion runs async.",
+    )
+    def post(self, request):
+        serializer = PolicyUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+
+        org, _ = ClientModel.objects.get_or_create(name="Default Synthetic Client")
+        policy, _ = Policy.objects.get_or_create(client=org, policy_number=v["policy_number"])
+        policy_version, _ = PolicyVersion.objects.update_or_create(
+            policy=policy, version=v["version"],
+            defaults={
+                "effective_from": v["effective_from"], "effective_to": v.get("effective_to"),
+                "policy_limit": v["policy_limit"], "deductible": v["deductible"],
+            },
+        )
+
+        uploaded = v["file"]
+        ext = uploaded.name.lower().rsplit(".", 1)[-1]
+        saved_path = default_storage.save(f"policy_uploads/{uploaded.name}", uploaded)
+        abs_path = default_storage.path(saved_path)
+
+        document = Document.objects.create(
+            policy_version=policy_version, filename=uploaded.name, file_type=ext, status="pending",
+        )
+        ingest_document_task.delay(str(document.id), abs_path, ext)
+
+        return Response(DocumentStatusSerializer(document).data, status=status.HTTP_202_ACCEPTED)
+
+
+class DocumentStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: DocumentStatusSerializer, 404: ErrorResponseSerializer})
+    def get(self, request, document_id):
+        doc = Document.objects.filter(id=document_id).first()
+        if not doc:
+            return Response({"error": "Not found"}, status=404)
+        return Response(DocumentStatusSerializer(doc).data)
 class HealthView(APIView):
     permission_classes = []
     def get(self, request):
