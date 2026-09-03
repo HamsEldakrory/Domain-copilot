@@ -97,6 +97,9 @@ class AgentRun(models.Model):
     agent_name = models.CharField(max_length=100)
     input_data = models.JSONField(default=dict)
     output_data = models.JSONField(default=dict, blank=True)
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    correlation_id = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
