@@ -89,7 +89,7 @@ class AdjudicationPipelineOrchestrator:
             degraded=True,
         )
 
-    def run(self, claim_id: str, claimed_amount: float) -> PipelineResult:
+    def run(self, claim_id: str, claimed_amount: float,deductible_override=None) -> PipelineResult:
         job_id = self._run_recorder.start_job(claim_id)
         context = {"claimed_amount": claimed_amount}
         steps = []
@@ -117,7 +117,7 @@ class AdjudicationPipelineOrchestrator:
             if context.get("policy_version_id"):
                 limit, deductible = self._policy_limit_lookup(context["policy_version_id"])
                 context["policy_limit"] = limit
-                context["deductible"] = deductible
+                context["deductible"] = deductible_override if deductible_override is not None else deductible
 
             exclusion_output, executed = self._run_step_with_controls(
                 self._exclusion_analyst, AgentInput(claim_id=claim_id, job_id=job_id, context=context), "exclusion_analyst", job_id

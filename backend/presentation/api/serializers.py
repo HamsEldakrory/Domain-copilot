@@ -4,7 +4,7 @@ from infrastructure.persistence.models import Document, User
 class AdjudicateRequestSerializer(serializers.Serializer):
     claim_id = serializers.UUIDField()
     claimed_amount = serializers.FloatField(min_value=0)
-
+    deductible_override = serializers.FloatField(min_value=0, required=False, allow_null=True)
 
 class CreateAdjusterRequestSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)

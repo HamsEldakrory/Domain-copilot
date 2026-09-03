@@ -35,7 +35,7 @@ class AdjudicateView(APIView):
         deductible_override = serializer.validated_data.get("deductible_override")
         correlation_id=getattr(request, "correlation_id", str(uuid.uuid4()))
         job = Job.objects.create(claim_id=claim_id, status="QUEUED")
-        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount, correlation_id,deductible_override)
+        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount, correlation_id, deductible_override)
         return Response({"job_id": str(job.id), "status": "QUEUED", "correlation_id": correlation_id}, status=status.HTTP_202_ACCEPTED)
 class CreateAdjusterView(APIView):
     permission_classes = [IsAuthenticated, IsManager]
