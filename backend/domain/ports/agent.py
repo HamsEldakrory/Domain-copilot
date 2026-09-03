@@ -14,7 +14,8 @@ class AgentOutput:
     result: dict
     tool_calls: list[str] = field(default_factory=list)
     citations: list[dict] = field(default_factory=list)
-
+    input_tokens: int = 0
+    output_tokens: int = 0
 class Agent(ABC):
     name: str
     @abstractmethod

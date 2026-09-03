@@ -41,18 +41,23 @@ class ExclusionAnalystAgent(Agent):
 
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""
-        for token in stream:
-            if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
-                stream.close()
-                raise JobCancelledError(job_id)
-            full_text += token
-            self._publish(job_id, "token", {"agent": self.name, "token": token})
+        try:
+            for token in stream:
+                if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
+                    stream.close()
+                    raise JobCancelledError(job_id)
+                full_text += token
+                self._publish(job_id, "token", {"agent": self.name, "token": token})
+        except JobCancelledError:   
+            raise
 
-        self._publish(job_id, "agent_complete", {"agent": self.name})
+        self._publish(job_id, "agent_complete", {"agent": self.name, "input_tokens": stream.input_tokens, "output_tokens": stream.output_tokens})
 
         return AgentOutput(
             agent_name=self.name,
             result={"exclusion_summary": full_text},
             tool_calls=["search_policy"],
             citations=citations,
+            input_tokens=stream.input_tokens,
+            output_tokens=stream.output_tokens,
         )

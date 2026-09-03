@@ -5,9 +5,8 @@ class AgentRunRecorder(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def record_agent_run(self, job_id: str, agent_name: str, input_data: dict, output_data: dict) -> None:
+    def record_agent_run(self, job_id, agent_name, input_data, output_data, input_tokens=0, output_tokens=0, correlation_id=None) -> None:
         raise NotImplementedError
-
     @abstractmethod
     def complete_job(self, job_id: str) -> None:
         raise NotImplementedError

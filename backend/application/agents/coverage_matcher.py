@@ -42,7 +42,6 @@ class CoverageMatcherAgent(Agent):
             "If the excerpts don't clearly establish coverage, say so plainly - do not guess.\n\n"
             f"Policy excerpts:\n{context_text}\n\nRespond in 2-3 sentences."
         )
-
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""
         try:
@@ -55,8 +54,11 @@ class CoverageMatcherAgent(Agent):
         except JobCancelledError:
             raise
 
-        self._publish(job_id, "agent_complete", {"agent": self.name})
-
+        self._publish(job_id, "agent_complete", {
+            "agent": self.name,
+            "input_tokens": stream.input_tokens,
+            "output_tokens": stream.output_tokens,
+        })
         return AgentOutput(
             agent_name=self.name,
             result={
@@ -66,4 +68,6 @@ class CoverageMatcherAgent(Agent):
             },
             tool_calls=["get_policy_version", "search_policy"],
             citations=citations,
+            input_tokens=stream.input_tokens,
+            output_tokens=stream.output_tokens,
         )
