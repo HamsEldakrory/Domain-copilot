@@ -2,12 +2,12 @@ import os
 from statistics import correlation
 from celery import uuid
 from django.core.files.storage import default_storage
-from django.http.multipartparser import MultiPartParser
+from rest_framework.parsers import MultiPartParser
 from rest_framework.parsers import FormParser
 from rest_framework.views import APIView, settings
 from rest_framework.response import Response
 from rest_framework import status
-from backend.config.settings import CELERY_BROKER_URL
+from config.settings import CELERY_BROKER_URL
 from presentation.api.permissions import CanAccessClaim, IsManager
 from infrastructure.tasks import adjudicate_claim_task,ingest_document_task
 from infrastructure.persistence.models import Document, Job, User, Policy, PolicyVersion, Document, Client as ClientModel
