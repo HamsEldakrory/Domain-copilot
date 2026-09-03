@@ -42,15 +42,21 @@ class AdjudicationDrafterAgent(Agent):
         )
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""
-        for token in stream:
-            if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
-                stream.close()
-                raise JobCancelledError(job_id)
-            full_text += token
-            self._publish(job_id, "token", {"agent": self.name, "token": token})
-        self._publish(job_id, "agent_complete", {"agent": self.name})
+        try:
+
+            for token in stream:
+                if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
+                    stream.close()
+                    raise JobCancelledError(job_id)
+                full_text += token
+                self._publish(job_id, "token", {"agent": self.name, "token": token})
+        except JobCancelledError:
+            raise
+        self._publish(job_id, "agent_complete", {"agent": self.name ,"input_tokens": stream.input_tokens, "output_tokens": stream.output_tokens})
         return AgentOutput(
             agent_name=self.name,
             result={"payout": payout_result.output, "anomaly": anomaly_result.output, "recommendation_narrative": full_text},
             tool_calls=["calculate_payout", "detect_anomaly"],
+            input_tokens=stream.input_tokens,
+            output_tokens=stream.output_tokens,
         )
