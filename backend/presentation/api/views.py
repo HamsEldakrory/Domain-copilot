@@ -195,7 +195,7 @@ class DocumentListView(APIView):
 
     @extend_schema(responses={200: DocumentStatusSerializer(many=True)})
     def get(self, request):
-        docs = Document.objects.select_related("policy_version__policy").order_by("-created_at")[:25]
+        docs = Document.objects.select_related("policy_version__policy").prefetch_related("chunks").order_by("-created_at")
         return Response(DocumentStatusSerializer(docs, many=True).data)
 
 @extend_schema(exclude=True)

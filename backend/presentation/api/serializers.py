@@ -53,6 +53,7 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
     policy_version = serializers.CharField(source="policy_version.version", read_only=True, default=None)
     policy_limit = serializers.FloatField(source="policy_version.policy_limit", read_only=True, default=None)
     deductible = serializers.FloatField(source="policy_version.deductible", read_only=True, default=None)
+    chunk_count = serializers.IntegerField(source="chunks.count", read_only=True, default=0)
 
     class Meta:
         model = Document
@@ -64,6 +65,7 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
             "policy_version",
             "policy_limit",
             "deductible",
+            "chunk_count",
             "error_message",
             "created_at",
         ]
