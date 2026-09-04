@@ -48,7 +48,8 @@ class AdjudicationDrafterAgent(Agent):
             f"Anomaly flags: {anomaly_result.output.get('flags', [])}\n"
             f"Calculated Payout: ${payout_dict.get('payout', 0):.2f}\n\n"
             "Write 2-3 sentences recommending approve, reject, or escalate, with reasoning. "
-            "Make sure to explicitly mention the final calculated payout amount in your recommendation."
+            "Make sure to explicitly mention the final calculated payout amount in your recommendation. "
+            "If any anomaly flags are present, explicitly state the anomaly types in your reasoning."
         )
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""
