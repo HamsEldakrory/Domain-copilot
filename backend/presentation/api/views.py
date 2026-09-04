@@ -8,6 +8,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView, settings
+
 from application.use_cases.cancel_job import CancelJobUseCase
 from infrastructure.persistence.models import (
     Claim,
@@ -121,6 +122,8 @@ from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunR
 from infrastructure.persistence.django_approval_repository import (
     DjangoApprovalRepository,
 )
+
+
 class CancelJobView(APIView):
     permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(

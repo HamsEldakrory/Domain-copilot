@@ -1,10 +1,12 @@
 import json
 import os
+
 import redis
 from django.conf import settings
 from django.db import close_old_connections
 from django.http import StreamingHttpResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from domain.policies.claim_access_policy import can_access_claim
 from infrastructure.persistence.models import Job
 
