@@ -1,0 +1,153 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+
+    USER {
+        int id PK
+        string username
+        string email
+        string role
+    }
+    CLIENT {
+        uuid id PK
+        string name
+        datetime created_at
+    }
+
+    POLICY {
+        uuid id PK
+        uuid client_id FK
+        string policy_number
+        datetime created_at
+    }
+
+    POLICY_VERSION {
+        uuid id PK
+        uuid policy_id FK
+        string version
+        date effective_from
+        date effective_to
+        decimal policy_limit
+        decimal deductible
+    }
+
+    DOCUMENT {
+        uuid id PK
+        uuid policy_version_id FK
+        string filename
+        string file_type
+        string status
+        string content_hash
+        text error_message
+        string embedding_provider
+        datetime created_at
+    }
+
+    DOCUMENT_CHUNK {
+        uuid id PK
+        uuid document_id FK
+        int page_number
+        string section
+        text content
+        string clause
+        text search_content
+        vector embedding
+    }
+
+    CLAIM {
+        uuid id PK
+        uuid client_id FK
+        uuid policy_version_id FK
+        int adjuster_id FK
+        date claim_date
+        string status
+        decimal final_payout
+        datetime created_at
+    }
+
+    JOB {
+        uuid id PK
+        uuid claim_id FK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    JOB_STEP {
+        uuid id PK
+        uuid job_id FK
+        string name
+        string status
+        datetime started_at
+        datetime finished_at
+    }
+
+    AGENT_RUN {
+        uuid id PK
+        uuid job_id FK
+        string agent_name
+        json input_data
+        json output_data
+        int input_tokens
+        int output_tokens
+        string correlation_id
+        datetime created_at
+    }
+
+    APPROVAL {
+        uuid id PK
+        uuid claim_id FK
+        uuid job_id FK
+        int approver_id FK
+        string status
+        text comment
+        datetime created_at
+    }
+
+    DECISION {
+        uuid id PK
+        uuid claim_id FK
+        uuid job_id FK
+        int approved_by_id FK
+        string outcome
+        text rationale
+        decimal final_payout
+        datetime created_at
+    }
+
+    AUDIT_LOG {
+        uuid id PK
+        uuid job_id FK
+        uuid agent_run_id FK
+        int actor_id FK
+        string action
+        json metadata
+        datetime created_at
+    }
+
+    CLIENT ||--o{ POLICY : owns
+    POLICY ||--o{ POLICY_VERSION : has
+    POLICY_VERSION ||--o{ DOCUMENT : contains
+    DOCUMENT ||--o{ DOCUMENT_CHUNK : contains
+
+    CLIENT ||--o{ CLAIM : submits
+    POLICY_VERSION o|--o{ CLAIM : applies_to
+    USER ||--o{ CLAIM : handles
+
+    CLAIM ||--o{ JOB : creates
+    JOB ||--o{ JOB_STEP : contains
+    JOB ||--o{ AGENT_RUN : executes
+
+    CLAIM ||--o{ APPROVAL : requires
+    JOB o|--o{ APPROVAL : relates_to
+    USER ||--o{ APPROVAL : approves
+
+    CLAIM ||--o{ DECISION : has
+    JOB o|--o{ DECISION : produces
+    USER ||--o{ DECISION : makes
+
+    JOB o|--o{ AUDIT_LOG : generates
+    AGENT_RUN o|--o{ AUDIT_LOG : generates
+    USER o|--o{ AUDIT_LOG : performs

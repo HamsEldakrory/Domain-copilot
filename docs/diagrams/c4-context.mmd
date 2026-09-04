@@ -1,0 +1,18 @@
+C4Context
+    title Insurance Claims Adjudication System - System Context
+
+    Person(adjuster, "Adjuster", "Reviews assigned claims and approves or rejects adjudication decisions")
+    Person(manager, "Manager", "Supervises claims and adjusters and has broader system access")
+
+    System(system, "Insurance Claims Adjudication System", "AI-assisted system for insurance claim adjudication")
+
+    System_Ext(llm, "LLM Provider", "External language model service")
+
+    Rel(adjuster, system, "Reviews and adjudicates claims")
+    Rel(manager, system, "Supervises and manages claims")
+    Rel(system, llm, "Uses AI capabilities")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
+    UpdateRelStyle(adjuster, system, $offsetY="-30", $offsetX="20")
+    UpdateRelStyle(manager, system, $offsetY="30", $offsetX="20")
+    UpdateRelStyle(system, llm, $offsetY="0", $offsetX="40")
