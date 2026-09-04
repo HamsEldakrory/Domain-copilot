@@ -1,9 +1,11 @@
-from domain.ports.agent import Agent, AgentInput, AgentOutput
-from domain.ports.llm_provider import LLMProvider, Message
-from domain.ports.job_event_publisher import JobEventPublisher
-from domain.ports.cancellation_checker import CancellationChecker
-from domain.errors import JobCancelledError
 from application.agents.tool_gateway import ToolGateway
+from domain.errors import JobCancelledError
+from domain.ports.agent import Agent, AgentInput, AgentOutput
+from domain.ports.cancellation_checker import CancellationChecker
+from domain.ports.job_event_publisher import JobEventPublisher
+from domain.ports.llm_provider import LLMProvider, Message
+
+
 class AdjudicationDrafterAgent(Agent):
     name = "adjudication_drafter"
     ALLOWED_TOOLS = ["calculate_payout", "detect_anomaly"]
@@ -53,16 +55,12 @@ class AdjudicationDrafterAgent(Agent):
         )
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""
-        try:
-
-            for token in stream:
-                if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
-                    stream.close()
-                    raise JobCancelledError(job_id)
-                full_text += token
-                self._publish(job_id, "token", {"agent": self.name, "token": token})
-        except JobCancelledError:
-            raise
+        for token in stream:
+            if self._cancellation_checker and job_id and self._cancellation_checker.is_cancelled(job_id):
+                stream.close()
+                raise JobCancelledError(job_id)
+            full_text += token
+            self._publish(job_id, "token", {"agent": self.name, "token": token})
         self._publish(job_id, "agent_complete", {"agent": self.name ,"input_tokens": stream.input_tokens, "output_tokens": stream.output_tokens})
         
         return AgentOutput(

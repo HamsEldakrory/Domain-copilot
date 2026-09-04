@@ -1,6 +1,8 @@
 import re
-from domain.ports.text_chunker import TextChunker, ChunkCandidate
+
+from domain.ports.text_chunker import ChunkCandidate, TextChunker
 from infrastructure.ingestion.text_cleaner import clean_text
+
 HEADING_RE = re.compile(r"^\s*(\d+)\.\s+([A-Z][^.]{2,60})$")
 class NumberedHeadingChunker(TextChunker):
     def chunk(self, extracted_document) -> list[ChunkCandidate]:

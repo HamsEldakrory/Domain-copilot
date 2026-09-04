@@ -1,5 +1,6 @@
-import uuid
 import threading
+import uuid
+
 _local = threading.local()
 
 def get_correlation_id():

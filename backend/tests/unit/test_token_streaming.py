@@ -1,9 +1,9 @@
-# tests/test_token_streaming.py
-from django.test import TestCase
 from unittest.mock import MagicMock
 
-from infrastructure.llm.openai_provider import OpenAITokenStream
+from django.test import TestCase
+
 from infrastructure.llm.ollama_provider import OllamaTokenStream
+from infrastructure.llm.openai_provider import OpenAITokenStream
 
 
 def make_openai_chunk(content=None, usage=None):

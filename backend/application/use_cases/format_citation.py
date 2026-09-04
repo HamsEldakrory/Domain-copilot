@@ -1,5 +1,6 @@
 from domain.ports.retriever import RetrievedChunk
 
+
 def format_citation(chunk: RetrievedChunk) -> dict:
     return {
         "chunk_id": chunk.chunk_id,

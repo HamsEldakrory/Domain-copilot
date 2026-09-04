@@ -1,0 +1,3 @@
+# Ignore dummy test password in CI workflow
+# Fingerprint from gitleaks output
+7fd996c54207db8f67b0f8b315f3d6883953d97c:.github/workflows/ci.yml:hashicorp-tf-password:17

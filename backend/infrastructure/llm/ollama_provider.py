@@ -1,13 +1,16 @@
 import os
+
 import ollama
 
 from domain.ports.llm_provider import (
+    CompletionResult,
     LLMProvider,
     Message,
-    ToolDefinition,
     ToolCall,
-    CompletionResult,
+    ToolDefinition,
 )
+
+
 class OllamaTokenStream:
     def __init__(self, raw_stream):
         self._raw_stream = raw_stream

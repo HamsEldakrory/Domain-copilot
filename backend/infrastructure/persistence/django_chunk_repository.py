@@ -1,6 +1,7 @@
 from domain.ports.chunk_repository import ChunkRepository
 from infrastructure.persistence.models import Document, DocumentChunk
 
+
 class DjangoChunkRepository(ChunkRepository):
     def get_document_hash(self, document_id):
         try:

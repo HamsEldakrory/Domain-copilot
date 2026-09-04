@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+
+
 class ChunkRepository(ABC):
     @abstractmethod
     def get_document_hash(self, document_id) -> str | None:

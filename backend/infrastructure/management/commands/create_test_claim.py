@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand
-from infrastructure.persistence.models import Client, PolicyVersion, User, Claim
+
+from infrastructure.persistence.models import Claim, Client, PolicyVersion, User
+
 
 class Command(BaseCommand):
     help = "Create a test claim against a real ingested policy version."

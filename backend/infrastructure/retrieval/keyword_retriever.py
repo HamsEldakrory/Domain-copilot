@@ -1,6 +1,8 @@
-from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-from domain.ports.retriever import Retriever, RetrievedChunk
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+
+from domain.ports.retriever import RetrievedChunk, Retriever
 from infrastructure.persistence.models import DocumentChunk
+
 
 class KeywordRetriever(Retriever):
     def retrieve(self, query, policy_version_id=None, top_k=10):

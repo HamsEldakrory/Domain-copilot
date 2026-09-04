@@ -1,6 +1,6 @@
-# tests/test_observability.py
-from django.test import TestCase
 from unittest.mock import MagicMock
+
+from django.test import TestCase
 
 from application.use_cases.adjudication_pipeline import AdjudicationPipelineOrchestrator
 from domain.ports.agent import AgentOutput

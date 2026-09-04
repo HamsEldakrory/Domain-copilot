@@ -1,5 +1,6 @@
 from domain.ports.tool import Tool, ToolResult
 
+
 class CalculatePayoutTool(Tool):
     name = "calculate_payout"
     description = "Calculate payout given claimed amount, policy limit, and deductible."

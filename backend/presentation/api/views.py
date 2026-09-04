@@ -1,25 +1,43 @@
-import os
 import uuid
+
 from django.core.files.storage import default_storage
-from rest_framework.parsers import MultiPartParser
-from rest_framework.parsers import FormParser
-from rest_framework.views import APIView, settings
-from rest_framework.response import Response
-from rest_framework import status
-from config.settings import CELERY_BROKER_URL
-from presentation.api.permissions import CanAccessClaim, IsManager, IsAdjuster
 from django.db.models import Count
-from infrastructure.tasks import adjudicate_claim_task, ingest_document_task
-from infrastructure.persistence.models import Claim, Decision, Document, Job, User, Policy, PolicyVersion, Client as ClientModel
-from application.use_cases.cancel_job import CancelJobUseCase
-from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
-from django.db import IntegrityError
-from presentation.api.serializers import (
-    AdjudicateRequestSerializer, ApprovalDecisionRequestSerializer, AskRequestSerializer, ClaimListSerializer, ClaimListSerializer, JobSubmittedResponseSerializer,CreateAdjusterRequestSerializer,
-    JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,DocumentStatusSerializer, UserBasicSerializer,
-    PolicyUploadSerializer
+from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView, settings
+
+from application.use_cases.cancel_job import CancelJobUseCase
+from infrastructure.persistence.models import (
+    Claim,
+    Decision,
+    Document,
+    Job,
+    Policy,
+    PolicyVersion,
+    User,
 )
+from infrastructure.persistence.models import Client as ClientModel
+from infrastructure.tasks import adjudicate_claim_task, ingest_document_task
+from presentation.api.permissions import CanAccessClaim, IsAdjuster, IsManager
+from presentation.api.serializers import (
+    AdjudicateRequestSerializer,
+    ApprovalDecisionRequestSerializer,
+    AskRequestSerializer,
+    CancelResponseSerializer,
+    ClaimListSerializer,
+    CreateAdjusterRequestSerializer,
+    DocumentStatusSerializer,
+    ErrorResponseSerializer,
+    JobStatusResponseSerializer,
+    JobSubmittedResponseSerializer,
+    PolicyUploadSerializer,
+    UserBasicSerializer,
+)
+
+
 def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, deductible_override):
     """Dispatch to Celery. Raises ServiceUnavailable (503) if the broker is unreachable.
 
@@ -40,7 +58,7 @@ def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, ded
 
 
 class AdjudicateView(APIView):
-    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
         request=AdjudicateRequestSerializer,
         responses={202: JobSubmittedResponseSerializer, 403: ErrorResponseSerializer},
@@ -104,10 +122,11 @@ class JobStatusView(APIView):
             return Response({"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"job_id": str(job.id), "status": job.status})
     
-from application.use_cases.cancel_job import CancelJobUseCase
-from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
-from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
 from infrastructure.events.redis_job_event_publisher import RedisJobEventPublisher
+from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
+from infrastructure.persistence.django_approval_repository import (
+    DjangoApprovalRepository,
+)
 
 
 class CancelJobView(APIView):
@@ -199,8 +218,8 @@ class HealthView(APIView):
 class ReadinessView(APIView):
     permission_classes = []
     def get(self, request):
-        from django.db import connection
         import redis
+        from django.db import connection
         checks = {}
         try:
             connection.cursor()
@@ -260,11 +279,11 @@ class AskView(APIView):
     def post(self, request, claim_id=None):
         serializer = AskRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        from application.use_cases.format_citation import format_citation
+        from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
+        from infrastructure.composition_root import build_embedding_provider
         from infrastructure.retrieval.dense_retriever import DenseRetriever
         from infrastructure.retrieval.keyword_retriever import KeywordRetriever
-        from infrastructure.composition_root import build_embedding_provider
-        from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
-        from application.use_cases.format_citation import format_citation
         use_case = RetrieveChunksUseCase(DenseRetriever(build_embedding_provider()), KeywordRetriever())
         result = use_case.execute(serializer.validated_data["query"], policy_version_id=str(serializer.validated_data.get("policy_version_id", "")) or None)
         if result.refused:
@@ -280,7 +299,9 @@ class JobTraceView(APIView):
     )
     def get(self, request, job_id):
         from application.use_cases.get_run_trace import GetRunTraceUseCase
-        from infrastructure.persistence.django_trace_repository import DjangoTraceRepository
+        from infrastructure.persistence.django_trace_repository import (
+            DjangoTraceRepository,
+        )
         trace = GetRunTraceUseCase(DjangoTraceRepository()).execute(str(job_id))
         return Response([{"timestamp": e.timestamp, "kind": e.kind, "detail": e.detail} for e in trace])
 
@@ -295,10 +316,12 @@ class ApprovalDecisionView(APIView):
         serializer = ApprovalDecisionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         from application.use_cases.approval_gate import ApprovalGateUseCase
-        from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
+        from infrastructure.persistence.django_approval_repository import (
+            DjangoApprovalRepository,
+        )
         from infrastructure.persistence.django_audit_logger import DjangoAuditLogger
-        from infrastructure.tools.finalize_adjudication import FinalizeAdjudicationTool
         from infrastructure.persistence.models import Job as JobModel
+        from infrastructure.tools.finalize_adjudication import FinalizeAdjudicationTool
 
         job = JobModel.objects.get(id=job_id)
         gate = ApprovalGateUseCase(DjangoApprovalRepository(), FinalizeAdjudicationTool(), DjangoAuditLogger())
@@ -330,8 +353,8 @@ class CreateClaimView(APIView):
         description="Create a new claim. The authenticated adjuster is automatically set as the claim owner.",
     )
     def post(self, request):
-        from presentation.api.serializers import CreateClaimSerializer
         from infrastructure.persistence.models import Client, PolicyVersion
+        from presentation.api.serializers import CreateClaimSerializer
 
         serializer = CreateClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

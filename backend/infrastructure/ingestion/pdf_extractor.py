@@ -1,5 +1,12 @@
 from pypdf import PdfReader
-from domain.ports.document_extractor import DocumentExtractor, ExtractedDocument, ExtractedPage
+
+from domain.ports.document_extractor import (
+    DocumentExtractor,
+    ExtractedDocument,
+    ExtractedPage,
+)
+
+
 class PdfExtractor(DocumentExtractor):
     def supports(self, file_extension: str) -> bool:
         return file_extension.lower() == ".pdf"
