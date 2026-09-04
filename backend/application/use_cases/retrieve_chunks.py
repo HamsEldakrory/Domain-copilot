@@ -12,7 +12,7 @@ class RetrieveChunksUseCase:
         dense_retriever: Retriever,
         keyword_retriever: Retriever,
         rrf_k: int = 10,
-        similarity_threshold: float = 0.35,
+        similarity_threshold: float = 0.55,
     ):
         self._dense = dense_retriever
         self._keyword = keyword_retriever
