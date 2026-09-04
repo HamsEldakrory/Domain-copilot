@@ -1,10 +1,14 @@
 import os
+
 import django
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 from django.test import RequestFactory
+
 from presentation.api.sse import job_progress_stream
+
 token = os.getenv("JWT_TOKEN")  # Replace with your actual token
 job_id = "YOUR_JOB_ID_HERE"  # Replace with the actual job ID
 rf = RequestFactory()
@@ -16,7 +20,7 @@ try:
             print(chunk)
     else:
         print(response.status_code)
-except Exception as e:
+except Exception:
     import traceback
     traceback.print_exc()
 

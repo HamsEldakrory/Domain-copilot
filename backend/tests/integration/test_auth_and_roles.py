@@ -1,5 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
+
 from infrastructure.persistence.models import (
     Claim,
     Client,
@@ -9,6 +10,8 @@ from infrastructure.persistence.models import (
     User,
 )
 from tests.support import make_token
+
+
 class AuthAndRoleTests(TestCase):
     def setUp(self):
         self.client_api = APIClient()

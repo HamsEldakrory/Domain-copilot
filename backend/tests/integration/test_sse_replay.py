@@ -1,6 +1,8 @@
 import json
+
 from django.test import TestCase
 from django.test.client import RequestFactory
+
 from infrastructure.persistence.models import (
     Claim,
     Client,
@@ -11,6 +13,8 @@ from infrastructure.persistence.models import (
 )
 from presentation.api.sse import job_progress_stream
 from tests.support import make_token, redis_client
+
+
 class SSEReplayTests(TestCase):
     @classmethod
     def setUpClass(cls):
