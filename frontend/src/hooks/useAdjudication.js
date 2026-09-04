@@ -57,6 +57,9 @@ export const useJobStatus = (jobId, enabled = true) => {
     queryFn: () => getJobStatus(jobId),
     enabled: Boolean(jobId) && enabled,
     refetchInterval: (query) => {
+      // Stop polling if the network request itself fails (e.g., server down)
+      if (query.state.status === "error") return false;
+
       const { status } = query.state.data ?? {};
       const TERMINAL = ["COMPLETED", "FAILED", "CANCELLED", "WAITING_APPROVAL"];
       if (status && TERMINAL.includes(status)) return false;
