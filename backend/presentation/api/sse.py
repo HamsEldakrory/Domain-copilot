@@ -8,11 +8,27 @@ from domain.policies.claim_access_policy import can_access_claim
 
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
 PAUSE_STATUSES = {"WAITING_APPROVAL"}
-def job_progress_stream(request, job_id):
+def _authenticate_sse(request):
+    """
+    EventSource cannot send headers, so the JWT is passed as ?access=<token>.
+    Inject it as a fake Authorization header if the real one is absent.
+    """
+    if not request.headers.get("Authorization"):
+        token = request.GET.get("access", "")
+        if token:
+            # Mutate the META dict — DRF reads HTTP_AUTHORIZATION from it
+            request.META["HTTP_AUTHORIZATION"] = f"Bearer {token}"
     try:
-        user, _ = JWTAuthentication().authenticate(request)
+        result = JWTAuthentication().authenticate(request)
+        if result is None:
+            return None, None
+        return result  # (user, validated_token)
     except Exception:
-        return HttpResponseForbidden("Authentication required")
+        return None, None
+
+
+def job_progress_stream(request, job_id):
+    user, _ = _authenticate_sse(request)
     if not user:
         return HttpResponseForbidden("Authentication required")
 
