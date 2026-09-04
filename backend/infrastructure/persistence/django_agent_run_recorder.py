@@ -38,7 +38,10 @@ class DjangoAgentRunRecorder(AgentRunRecorder):
             pass
 
         with transaction.atomic():
-            step = JobStep.objects.select_for_update().get(job_id=job_id, name=step_name)
+            step = JobStep.objects.select_for_update().filter(job_id=job_id, name=step_name).first()
+            if not step:
+                step, _ = JobStep.objects.get_or_create(job_id=job_id, name=step_name, defaults={"status": "RUNNING", "started_at": timezone.now()})
+                return "CLAIMED", None
 
             if step.status == "COMPLETED":
                 existing_run = (
