@@ -2,17 +2,15 @@ import { useLocation, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
 import { logout } from '../store/authSlice';
-
 const NAV_ADJUSTER = [
   { to: '/dashboard', label: 'Dashboard', icon: '▣' },
-  { to: '/claims',    label: 'Claims',    icon: '📋' },
+  { to: '/claims', label: 'Claims', icon: '📋' },
 ];
-
 const NAV_MANAGER = [
-  { to: '/dashboard',       label: 'Dashboard',     icon: '▣' },
-  { to: '/claims',          label: 'Claims',         icon: '📋' },
-  { to: '/policies/upload', label: 'Upload Policy',  icon: '📄' },
-  { to: '/users',           label: 'Users',          icon: '👥' },
+  { to: '/dashboard', label: 'Dashboard', icon: '▣' },
+  { to: '/claims', label: 'Claims', icon: '📋' },
+  { to: '/policies/upload', label: 'Upload Policy', icon: '📄' },
+  { to: '/users', label: 'Users', icon: '👥' },
 ];
 
 export default function AppShell({ title, children }) {
@@ -20,16 +18,13 @@ export default function AppShell({ title, children }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const isManager = user?.role === 'MANAGER';
   const navLinks = isManager ? NAV_MANAGER : NAV_ADJUSTER;
-
   const handleLogout = () => {
     dispatch(logout());
     queryClient.clear();
     navigate('/login', { replace: true });
   };
-
   const initials = user?.username
     ? user.username.slice(0, 2).toUpperCase()
     : '??';
@@ -42,7 +37,6 @@ export default function AppShell({ title, children }) {
           <div className="sidebar-logo-title">Domain Copilot</div>
           <div className="sidebar-logo-sub">Claims Adjudication</div>
         </div>
-
         <nav className="sidebar-nav">
           <div className="sidebar-section-label">Navigation</div>
           {navLinks.map((link) => (
@@ -76,8 +70,6 @@ export default function AppShell({ title, children }) {
           </button>
         </div>
       </aside>
-
-      {/* ── Main ── */}
       <div className="main-content">
         {title && (
           <header className="main-header">
