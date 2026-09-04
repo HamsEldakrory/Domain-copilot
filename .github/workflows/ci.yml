@@ -79,9 +79,9 @@ jobs:
         working-directory: ./backend
         run: ruff check .
 
-      - name: Run Backend Tests
+      - name: Run Unit Tests
         working-directory: ./backend
-        env:
+        env: &test_env
           DB_HOST: localhost
           DB_PORT: 5432
           DB_NAME: testdb
@@ -91,8 +91,17 @@ jobs:
           LLM_PROVIDER: ollama
           EMBEDDING_PROVIDER: ollama
           CELERY_BROKER_URL: redis://localhost:6379/0
-        run: |
-          python manage.py test tests -v 2
+        run: python manage.py test tests.unit -v 2
+
+      - name: Run Integration Tests
+        working-directory: ./backend
+        env: *test_env
+        run: python manage.py test tests.integration -v 2
+
+      - name: Run Contract Tests
+        working-directory: ./backend
+        env: *test_env
+        run: python manage.py test tests.contract -v 2
 
       - name: Frontend build
         working-directory: ./frontend
