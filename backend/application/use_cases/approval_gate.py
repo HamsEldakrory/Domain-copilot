@@ -16,21 +16,24 @@ class ApprovalGateUseCase:
     self, claim_id, job_id, approver_id, decision,
     outcome=None, rationale=None, comment="",
     original_recommendation: dict | None = None,
+    final_payout=None,
     ):
+        if final_payout is not None:
+            final_payout = float(final_payout)
         current_status = self._approval_repo.get_job_status(job_id)
         if current_status != "WAITING_APPROVAL":
             raise InvalidJobStateTransitionError(current_status, "approval_decision")
         if decision == "edit" and (not original_recommendation or not outcome or not rationale):
             raise MissingEditValuesError()
         self._approval_repo.record_approval(claim_id, job_id, approver_id, decision, comment)
-        self._audit_logger.log(job_id, approver_id, f"approval_decision:{decision}", {"comment": comment})
+        self._audit_logger.log(job_id, approver_id, f"approval_decision:{decision}", {"comment": comment, "final_payout": final_payout})
         if decision == "reject":
             self._approval_repo.update_job_status(job_id, "FAILED")
 
             return ApprovalDecisionResult(status="rejected")
         if decision == "edit":
             self._audit_logger.log(job_id, approver_id, "recommendation_edited", {
-                "original": original_recommendation, "edited_outcome": outcome, "edited_rationale": rationale,
+                "original": original_recommendation, "edited_outcome": outcome, "edited_rationale": rationale, "final_payout": final_payout
             })
 
         self._approval_repo.update_job_status(job_id, "RUNNING")  # finalize_adjudication is itself work
@@ -38,6 +41,7 @@ class ApprovalGateUseCase:
         finalize_result = self._finalize_tool.run(
             claim_id=claim_id, job_id=job_id, approved_by=approver_id,
             outcome=outcome or "approved", rationale=rationale or comment,
+            final_payout=final_payout,
         )
         if finalize_result.error:
             self._audit_logger.log(job_id, approver_id, "finalize_failed", {"error": finalize_result.error})
