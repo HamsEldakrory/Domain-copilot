@@ -1,4 +1,5 @@
 from rest_framework.permissions import BasePermission
+
 from domain.policies.claim_access_policy import can_access_claim
 from infrastructure.persistence.models import Claim, Job
 

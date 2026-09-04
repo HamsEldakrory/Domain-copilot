@@ -2,16 +2,11 @@ import os
 import threading
 from statistics import correlation
 import uuid
+
 from django.core.files.storage import default_storage
 from rest_framework.parsers import MultiPartParser
 from rest_framework.parsers import FormParser
 from rest_framework.views import APIView, settings
-from rest_framework.response import Response
-from rest_framework import status
-from config.settings import CELERY_BROKER_URL
-from presentation.api.permissions import CanAccessClaim, IsManager
-from infrastructure.tasks import adjudicate_claim_task,ingest_document_task
-from infrastructure.persistence.models import Claim, Decision, Document, Job, User, Policy, PolicyVersion, Client as ClientModel
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
@@ -109,10 +104,9 @@ class JobStatusView(APIView):
     
 from application.use_cases.cancel_job import CancelJobUseCase
 from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
-from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
-from infrastructure.events.redis_job_event_publisher import RedisJobEventPublisher
-
-
+from infrastructure.persistence.django_approval_repository import (
+    DjangoApprovalRepository,
+)
 class CancelJobView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
