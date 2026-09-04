@@ -1,0 +1,99 @@
+sequenceDiagram
+    participant U as Adjuster (React UI)
+    participant API as Django REST API
+    participant Q as Redis / Celery Queue
+    participant W as Celery Worker
+    participant O as Pipeline Orchestrator
+    participant CM as Coverage Matcher
+    participant EA as Exclusion Analyst
+    participant AD as Adjudication Drafter
+    participant T as Tools (deterministic)
+    participant L as LLM Provider
+    participant DB as PostgreSQL + pgvector
+    participant SSE as SSE Stream
+
+    U->>API: POST /api/adjudicate/ {claim_id, claimed_amount}
+    API->>DB: create Job (status=QUEUED)
+    API->>Q: adjudicate_claim_task.delay(job_id, ...)
+    API-->>U: 202 Accepted {job_id}
+
+    U->>SSE: GET /api/jobs/{job_id}/stream/ (Last-Event-ID on reconnect)
+    SSE->>DB: replay event history for job_id
+    SSE-->>U: id + event: status (replayed / current)
+
+    Q->>W: deliver task
+    W->>DB: update Job status=RUNNING
+    W->>O: run(claim_id, claimed_amount)
+
+    O->>DB: start_or_resume_step(coverage_matcher)
+    Note over O,DB: atomic claim - unique (job,name) constraint prevents duplicate concurrent execution
+    O->>CM: run(AgentInput)
+    CM->>T: get_policy_version(claim_id)
+    T->>DB: resolve PolicyVersion by claim_date
+    T-->>CM: policy_version_id (+ version_mismatch flag)
+    CM->>T: search_policy(query, policy_version_id)
+    T->>DB: dense + keyword retrieval, RRF fusion
+    T-->>CM: citations (chunk, page, section, version)
+    CM->>L: stream_completion(prompt + evidence)
+    loop token stream
+        L-->>CM: token
+        CM-->>SSE: publish event: token {agent, token}
+        SSE-->>U: id + event: token
+        CM->>DB: is_cancelled(job_id)?
+    end
+    CM-->>SSE: publish event: agent_complete {tokens}
+    CM->>DB: record AgentRun + complete_step(coverage_matcher)
+
+    O->>DB: start_or_resume_step(exclusion_analyst)
+    O->>EA: run(AgentInput + coverage context)
+    EA->>T: search_policy(exclusions, policy_version_id)
+    EA->>L: stream_completion(prompt + evidence)
+    loop token stream
+        L-->>EA: token
+        EA-->>SSE: publish event: token
+    end
+    EA->>DB: record AgentRun + complete_step(exclusion_analyst)
+
+    O->>DB: start_or_resume_step(adjudication_drafter)
+    O->>AD: run(AgentInput + coverage + exclusion context)
+    AD->>T: calculate_payout(claimed_amount, limit, deductible)
+    Note over T: deterministic - never LLM-computed
+    T-->>AD: payout (exact)
+    AD->>T: detect_anomaly(claim_id)
+    T-->>AD: anomaly flags
+    AD->>L: stream_completion(narrative prompt - no dollar figures)
+    loop token stream
+        L-->>AD: token
+        AD-->>SSE: publish event: token
+    end
+    AD->>DB: record AgentRun + complete_step(adjudication_drafter)
+
+    O->>DB: update Job status=WAITING_APPROVAL
+    O-->>SSE: publish event: status {WAITING_APPROVAL}
+    SSE-->>U: id + event: status
+    Note over SSE,U: stream closes - human review pause, not a terminal state
+
+    U->>API: POST /api/jobs/{job_id}/approval/ {decision, outcome, rationale}
+    API->>DB: get_job_status(job_id)
+    alt status != WAITING_APPROVAL
+        API-->>U: 400 InvalidJobStateTransitionError
+    else decision == reject
+        API->>DB: record Approval(status=reject)
+        API->>DB: update Job status=FAILED
+        API-->>U: {status: rejected}
+    else decision == approve / edit-and-approve
+        alt decision == edit
+            Note over API: requires original_recommendation + outcome + rationale, or raises MissingEditValuesError before any write
+        end
+        API->>DB: record Approval + update Job status=RUNNING
+        API->>T: finalize_adjudication(job_id, approved_by, outcome)
+        T->>DB: create Decision (final_payout, outcome, rationale)
+        T->>DB: update Claim status=decided
+        API->>DB: update Job status=COMPLETED
+        API->>DB: AuditLog: finalized
+        API-->>U: {status: approved / edited_and_approved}
+    end
+
+    U->>API: GET /api/jobs/{job_id}/trace/
+    API->>DB: query AgentRun + AuditLog + Approval + Decision (scoped by job_id)
+    API-->>U: full Agent -> Tool -> Evidence -> Approval -> Decision trace
