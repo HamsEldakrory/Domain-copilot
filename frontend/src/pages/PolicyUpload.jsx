@@ -109,7 +109,10 @@ export default function PolicyUpload() {
                   <input
                     className={`form-control${errors.policyNumber ? " is-error" : ""}`}
                     placeholder="e.g. auto_comp"
-                    {...register("policyNumber", { required: "Required" })}
+                    {...register("policyNumber", {
+                      required: "Policy number is required",
+                      minLength: { value: 2, message: "Must be at least 2 characters" },
+                    })}
                   />
                   {errors.policyNumber && (
                     <div className="form-error">{errors.policyNumber.message}</div>
@@ -120,7 +123,9 @@ export default function PolicyUpload() {
                   <input
                     className={`form-control${errors.version ? " is-error" : ""}`}
                     placeholder="e.g. 2024-01"
-                    {...register("version", { required: "Required" })}
+                    {...register("version", {
+                      required: "Policy version is required",
+                    })}
                   />
                   {errors.version && (
                     <div className="form-error">{errors.version.message}</div>
@@ -134,20 +139,30 @@ export default function PolicyUpload() {
                   <input
                     type="number"
                     step="0.01"
-                    className="form-control"
+                    className={`form-control${errors.policyLimit ? " is-error" : ""}`}
                     placeholder="e.g. 50000"
-                    {...register("policyLimit")}
+                    {...register("policyLimit", {
+                      min: { value: 0, message: "Policy limit cannot be negative" },
+                    })}
                   />
+                  {errors.policyLimit && (
+                    <div className="form-error">{errors.policyLimit.message}</div>
+                  )}
                 </div>
                 <div className="form-group mb-0">
                   <label className="form-label">Deductible ($)</label>
                   <input
                     type="number"
                     step="0.01"
-                    className="form-control"
+                    className={`form-control${errors.deductible ? " is-error" : ""}`}
                     placeholder="e.g. 1000"
-                    {...register("deductible")}
+                    {...register("deductible", {
+                      min: { value: 0, message: "Deductible cannot be negative" },
+                    })}
                   />
+                  {errors.deductible && (
+                    <div className="form-error">{errors.deductible.message}</div>
+                  )}
                 </div>
               </div>
 
@@ -156,7 +171,7 @@ export default function PolicyUpload() {
                 <input
                   type="date"
                   className={`form-control${errors.effectiveFrom ? " is-error" : ""}`}
-                  {...register("effectiveFrom", { required: "Required" })}
+                  {...register("effectiveFrom", { required: "Effective date is required" })}
                 />
                 {errors.effectiveFrom && (
                   <div className="form-error">{errors.effectiveFrom.message}</div>
@@ -298,6 +313,7 @@ export default function PolicyUpload() {
                 <th>Policy Number</th>
                 <th>Version</th>
                 <th>Limit / Deductible</th>
+                <th>Vector Chunks</th>
                 <th>Status</th>
                 <th>Uploaded At</th>
               </tr>
@@ -305,14 +321,14 @@ export default function PolicyUpload() {
             <tbody>
               {docsLoading && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 30 }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 30 }}>
                     <span className="spinner" /> Loading policy documents…
                   </td>
                 </tr>
               )}
               {!docsLoading && paginatedDocs.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 30 }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 30 }}>
                     <div className="empty-state">
                       <div className="empty-state-icon">📂</div>
                       <div className="empty-state-title">No policy documents found</div>
@@ -332,6 +348,11 @@ export default function PolicyUpload() {
                   </td>
                   <td className="text-sm font-mono">
                     {doc.policy_limit != null ? `$${Number(doc.policy_limit).toLocaleString()}` : "—"} / {doc.deductible != null ? `$${Number(doc.deductible).toLocaleString()}` : "—"}
+                  </td>
+                  <td>
+                    <span className="badge badge-primary font-mono text-xs" style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
+                      🧩 {doc.chunk_count ?? 0} chunks
+                    </span>
                   </td>
                   <td>
                     <StatusBadge status={doc.status} />
