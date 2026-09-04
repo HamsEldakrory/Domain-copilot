@@ -2,14 +2,14 @@ name: Domain Copilot CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -26,59 +26,57 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Required for gitleaks
-        
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up Node.js (for frontend & secret scan)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-    - name: Install backend dependencies
-      working-directory: ./backend
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pip-audit
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-    - name: Run Secret Scan (gitleaks)
-      # We use zricethezav/gitleaks-action normally, but can run via docker/pip too
-      run: |
-        wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
-        tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
-        ./gitleaks detect -v --source .
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
 
-    - name: Run Dependency Scan (pip-audit)
-      working-directory: ./backend
-      run: pip-audit || echo "Ignoring audit failures for demo purposes"
+      - name: Run Secret Scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Run Backend Linter (ruff)
-      working-directory: ./backend
-      run: ruff check .
+      - name: Run Dependency Scan (pip-audit)
+        working-directory: ./backend
+        run: pip-audit
 
-    - name: Run Backend Tests
-      working-directory: ./backend
-      env:
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DB_NAME: testdb
-        DB_USER: testuser
-        DB_PASSWORD: testpassword
-        DJANGO_SECRET_KEY: test-secret-key
-        LLM_PROVIDER: ollama
-        EMBEDDING_PROVIDER: ollama
-      run: |
-        python manage.py test tests -v 2
+      - name: Run Backend Linter (ruff)
+        working-directory: ./backend
+        run: ruff check .
 
-    - name: Frontend build
-      working-directory: ./frontend
-      run: |
-        npm ci
-        npm run build
+      - name: Run Backend Tests
+        working-directory: ./backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: testpassword
+          DJANGO_SECRET_KEY: test-secret-key
+          LLM_PROVIDER: ollama
+          EMBEDDING_PROVIDER: ollama
+        run: |
+          python manage.py test tests -v 2
+
+      - name: Frontend build
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
