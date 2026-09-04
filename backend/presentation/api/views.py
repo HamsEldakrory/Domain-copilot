@@ -7,7 +7,7 @@ from rest_framework.views import APIView, settings
 from rest_framework.response import Response
 from rest_framework import status
 from config.settings import CELERY_BROKER_URL
-from presentation.api.permissions import CanAccessClaim, IsManager
+from presentation.api.permissions import CanAccessClaim, IsManager, IsAdjuster
 from django.db.models import Count
 from infrastructure.tasks import adjudicate_claim_task, ingest_document_task
 from infrastructure.persistence.models import Claim, Decision, Document, Job, User, Policy, PolicyVersion, Client as ClientModel
@@ -40,7 +40,7 @@ def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, ded
 
 
 class AdjudicateView(APIView):
-    permission_classes = [IsAuthenticated, CanAccessClaim]
+    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(
         request=AdjudicateRequestSerializer,
         responses={202: JobSubmittedResponseSerializer, 403: ErrorResponseSerializer},
@@ -111,7 +111,7 @@ from infrastructure.events.redis_job_event_publisher import RedisJobEventPublish
 
 
 class CancelJobView(APIView):
-    permission_classes = [IsAuthenticated, CanAccessClaim]
+    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(
         request=None,
         responses={200: CancelResponseSerializer, 400: ErrorResponseSerializer, 404: ErrorResponseSerializer},
@@ -285,7 +285,7 @@ class JobTraceView(APIView):
         return Response([{"timestamp": e.timestamp, "kind": e.kind, "detail": e.detail} for e in trace])
 
 class ApprovalDecisionView(APIView):
-    permission_classes = [IsAuthenticated, CanAccessClaim]
+    permission_classes = [IsAuthenticated, IsManager, CanAccessClaim]
     @extend_schema(
         operation_id="approval_decision",
         request=ApprovalDecisionRequestSerializer,

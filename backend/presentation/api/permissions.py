@@ -28,3 +28,8 @@ class IsManager(BasePermission):
     message = "Only managers can perform this action."
     def has_permission(self, request, view):
         return getattr(request.user, "role", None) == "MANAGER"
+
+class IsAdjuster(BasePermission):
+    message = "Only adjusters can perform this action."
+    def has_permission(self, request, view):
+        return getattr(request.user, "role", None) == "ADJUSTER"
