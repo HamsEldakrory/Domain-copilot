@@ -63,10 +63,11 @@ def job_progress_stream(request, job_id):
         if job.status in TERMINAL_STATUSES or job.status in PAUSE_STATUSES:
             return
         elapsed = 0
-        max_wait_seconds = 180
+        max_wait_seconds = 600
         while elapsed < max_wait_seconds:
             entries = r.xread({stream_key: current_id}, block=1000, count=50)
             if entries:
+                elapsed = 0  # Reset timeout on activity
                 _, messages = entries[0]
                 for msg_id, fields in messages:
                     current_id = msg_id.decode()
@@ -79,6 +80,8 @@ def job_progress_stream(request, job_id):
                             return
             else:
                 elapsed += 1
+                if elapsed % 15 == 0:
+                    yield ": ping\n\n"
         yield f"event: timeout\ndata: {json.dumps({'message': 'stream timed out waiting for completion'})}\n\n"
     response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
