@@ -1,5 +1,4 @@
 import uuid
-
 from django.core.files.storage import default_storage
 from django.db.models import Count
 from drf_spectacular.utils import extend_schema
@@ -8,7 +7,6 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView, settings
-
 from application.use_cases.cancel_job import CancelJobUseCase
 from infrastructure.persistence.models import (
     Claim,
@@ -55,10 +53,8 @@ def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, ded
             code=503,
         ) from exc
 
-
-
 class AdjudicateView(APIView):
-    permission_classes = [IsAuthenticated, CanAccessClaim]
+    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(
         request=AdjudicateRequestSerializer,
         responses={202: JobSubmittedResponseSerializer, 403: ErrorResponseSerializer},
@@ -98,8 +94,6 @@ class CreateAdjusterView(APIView):
         user.save()
 
         return Response(UserBasicSerializer(user).data, status=status.HTTP_201_CREATED)
-
-
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -109,7 +103,6 @@ class CurrentUserView(APIView):
     )
     def get(self, request):
         return Response(UserBasicSerializer(request.user).data)
-
 class JobStatusView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
@@ -127,8 +120,6 @@ from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunR
 from infrastructure.persistence.django_approval_repository import (
     DjangoApprovalRepository,
 )
-
-
 class CancelJobView(APIView):
     permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(
@@ -270,7 +261,7 @@ class ClaimDetailView(APIView):
         return Response({**ClaimListSerializer(claim).data, "jobs": list(jobs), "decisions": decisions})
 
 class AskView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
         operation_id="ask",
         request=AskRequestSerializer,
