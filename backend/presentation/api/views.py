@@ -1,4 +1,5 @@
 import uuid
+
 from django.core.files.storage import default_storage
 from django.db.models import Count
 from drf_spectacular.utils import extend_schema
