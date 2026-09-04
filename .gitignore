@@ -10,7 +10,7 @@ db.sqlite3
 staticfiles/
 media/
 
-tests
+
 # Environment secrets
 .env
 .env.local
