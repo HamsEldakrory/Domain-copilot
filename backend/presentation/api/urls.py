@@ -1,6 +1,12 @@
 from django.urls import path
 from presentation.api.sse import job_progress_stream
-from presentation.api.views import AdjudicateView, CancelJobView, ClaimDetailView, ClaimListView, CreateAdjusterView, CurrentUserView, DocumentListView, DocumentStatusView, HealthView, JobStatusView, PolicyUploadView, ReadinessView,AskView,JobTraceView,ApprovalDecisionView
+from presentation.api.views import (
+    AdjudicateView, ApprovalDecisionView, AskView,
+    CancelJobView, ClaimDetailView, ClaimListView, CreateAdjusterView,
+    CreateClaimView, ClientListView, PolicyVersionListView,
+    CurrentUserView, DocumentListView, DocumentStatusView,
+    HealthView, JobStatusView, JobTraceView, PolicyUploadView, ReadinessView,
+)
 
 urlpatterns = [
     path("adjudicate/", AdjudicateView.as_view(), name="adjudicate"),
@@ -18,5 +24,8 @@ urlpatterns = [
     path("jobs/<uuid:job_id>/approve/", ApprovalDecisionView.as_view(), name="approve"),
     path("jobs/<uuid:job_id>/trace/", JobTraceView.as_view(), name="job-trace"),
     path("health/", HealthView.as_view()),
-    path("health/ready/", ReadinessView.as_view())
+    path("health/ready/", ReadinessView.as_view()),
+    path("claims/create/", CreateClaimView.as_view(), name="create-claim"),
+    path("clients/", ClientListView.as_view(), name="client-list"),
+    path("policy-versions/", PolicyVersionListView.as_view(), name="policy-version-list"),
 ]

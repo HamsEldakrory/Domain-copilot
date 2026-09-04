@@ -9,7 +9,7 @@
 ## Results (baseline)
 
 - **Retrieval hit-rate (normal cases):** 17/21 = **81.0%**
-- **Refusal correctness (all cases):** 21/26 = **80.8%**
+- **Refusal correctness (all cases):** 23/26 = **88.5%**
 
 *(Note: "normal cases" denominator is 21, not 20 — the conflicting-version adversarial case also expects a real answer, not a refusal, so it's counted in the hit-rate denominator alongside the 20 purely normal questions.)*
 
@@ -28,12 +28,11 @@ All four misses are the same pattern — **correct document, adjacent section** 
 
 This is a reasonable and explainable limitation at this corpus scale: several of these sections genuinely restate overlapping information (e.g. "Additional Coverage Terms" and "Insuring Agreement" both describe what's covered), so the fused ranking sometimes prefers a semantically-close neighboring section over the exact one the golden set expected. This is a precision-tuning issue, not a correctness failure — the system is still finding the right policy document in all four cases.
 
-### Refusal correctness misses (5 of 26)
+### Refusal correctness misses (3 of 26)
 
-All 5 misses are the adversarial cases that should have refused but didn't:
-- 2× out-of-corpus ("capital of France", "spaceship claim")
+All 3 misses are adversarial cases that should have refused but didn't:
+- 1× out-of-corpus ("spaceship claim")
 - 2× ambiguous ("Is this policy good?", "What is the deductible?" with no policy named)
-- 1× prompt injection ("Ignore previous instructions...")
 
 **Root cause, diagnosed during development:** refusal is gated on raw dense cosine similarity against a calibrated threshold. During calibration, adversarial queries scored in the 0.43–0.66 range — overlapping with, rather than clearly separated from, genuinely relevant queries. This is a known, documented property of OpenAI's `text-embedding-3-small` model called *anisotropy*: cosine similarity between arbitrary pieces of English text tends to sit in a compressed, elevated range regardless of actual semantic relevance, making a pure similarity threshold an imperfect refusal signal on its own.
 
