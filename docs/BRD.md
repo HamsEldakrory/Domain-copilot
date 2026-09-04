@@ -2,10 +2,10 @@
 
 ## Insurance Claims Adjudication Copilot
 
-**Domain:** D02 — Insurance Claims Adjudication  
-**Mandatory Twist:** T07 — Async Long-Running Jobs  
-**Status:** Initial Baseline — Day 1  
-**Version:** 0.1
+**Domain:** D02 — Insurance Claims Adjudication
+**Mandatory Twist:** T07 — Async Long-Running Jobs
+**Status:** Implementation Update
+**Version:** 0.2
 
 ---
 
@@ -18,11 +18,8 @@ limits, detect anomalies, and determine an appropriate outcome.
 The Insurance Claims Adjudication Copilot will assist the Adjuster by
 retrieving relevant insurance policy information and coordinating
 specialised AI agents to analyse the claim.
-
 The system will provide a recommendation supported by evidence.
-
 The final consequential decision remains under human approval.
-
 The system must also support long-running adjudication workflows
 through asynchronous jobs.
 
@@ -151,7 +148,13 @@ The system shall support ingestion of at least two document formats.
 - Documents can be processed into searchable content.
 - Relevant document metadata is preserved.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `infrastructure/ingestion/` (`PdfExtractor`, `DocxExtractor`,
+`NumberedHeadingChunker`), `application/use_cases/ingest_document.py`
+(`IngestDocumentUseCase`), `manage.py ingest_corpus`. Metadata (source,
+section, page, clause, policy version) preserved per chunk. Idempotent
+re-ingestion via `Document.content_hash`, verified with a duplicate-run test.
 
 ---
 
@@ -166,7 +169,12 @@ keyword retrieval.
 - Keyword retrieval is supported.
 - Results from both approaches are combined.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `infrastructure/retrieval/dense_retriever.py` (pgvector cosine
+distance), `infrastructure/retrieval/keyword_retriever.py` (Postgres
+full-text search), combined via Reciprocal Rank Fusion in
+`application/use_cases/retrieve_chunks.py`. See ADR-005.
 
 ---
 
@@ -180,7 +188,12 @@ The system shall use the policy version applicable to the claim date.
 - The claim date is considered.
 - The selected policy version is recorded.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `infrastructure/tools/get_policy_version.py` resolves the
+correct `PolicyVersion` by `claim_date` and flags
+`version_mismatch_detected` when the claim's pre-assigned version differs.
+Covered by the `adversarial_conflicting_version` evaluation case.
 
 ---
 
@@ -194,7 +207,12 @@ The system shall provide evidence supporting retrieved answers.
 - Citations identify the supporting source/chunk.
 - Unsupported questions are handled without inventing information.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `application/use_cases/format_citation.py` returns document,
+policy version, section, clause, page, and excerpt per result. Refusal on
+low-evidence questions gated on raw dense similarity (ADR-005), verified
+against 6 adversarial cases in `docs/EVALUATION.md`.
 
 ---
 
@@ -215,7 +233,12 @@ The planned agents are:
 - An orchestrator coordinates the workflow.
 - Each agent has a defined responsibility.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `application/agents/coverage_matcher.py`,
+`exclusion_analyst.py`, `adjudication_drafter.py`;
+`application/use_cases/adjudication_pipeline.py`
+(`AdjudicationPipelineOrchestrator`, Pipeline pattern, ADR-002).
 
 ---
 
@@ -233,7 +256,15 @@ be protected by human approval.
 - Tool inputs are validated.
 - The side-effecting operation cannot execute before approval.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `infrastructure/tools/`: `get_policy_version`,
+`search_policy`, `calculate_payout`, `detect_anomaly`, plus the
+write/side-effecting `finalize_adjudication` (only invoked from
+`ApprovalGateUseCase`'s approve/edit branches, never called directly by
+the pipeline). Per-agent tool allow-lists enforced via
+`application/agents/tool_gateway.py` (`ToolGateway`), raising
+`ToolNotAllowedError` on an out-of-scope call.
 
 ---
 
@@ -247,7 +278,11 @@ be performed by deterministic application logic.
 - Financial calculations are performed outside the LLM.
 - Calculation results can be tested.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `infrastructure/tools/calculate_payout.py` — pure Python,
+zero LLM calls, unit-tested in isolation. Agent prompts explicitly
+instruct the model never to state a dollar figure.
 
 ---
 
@@ -266,7 +301,14 @@ The Adjuster can:
 
 Approval actions are recorded.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `application/use_cases/approval_gate.py`
+(`ApprovalGateUseCase`) — enforces `Job.status == WAITING_APPROVAL` before
+any decision; reject never calls `finalize_adjudication`; edit-and-approve
+requires `original_recommendation` + `outcome` + `rationale` together
+(`MissingEditValuesError` otherwise, preventing a silent disguised
+approve). `tests/test_day6_orchestration.py`.
 
 ---
 
@@ -281,7 +323,12 @@ asynchronously using a queue and workers.
 - A job identifier is returned.
 - Work is processed by workers.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** Celery + Redis (`infrastructure/tasks.py`). Measured:
+`POST /api/adjudicate/` returns in 0.130s while the actual pipeline
+completes 9.06s later on the worker — response is ~70x faster than the
+work it triggers.
 
 ---
 
@@ -304,7 +351,17 @@ The system shall support:
 - Repeated operations do not create unintended duplicate work or
   side effects.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `QUEUED → RUNNING → WAITING_APPROVAL → RUNNING →
+COMPLETED/FAILED/CANCELLED`. `JobStep`-based resume verified by killing a
+worker mid-run and confirming a completed step is skipped on re-invocation.
+Step claiming is atomic — unique `(job, name)` DB constraint +
+insert-or-fail + `select_for_update()`, verified under real concurrent
+task delivery with `tests/test_step_claim_concurrency.py`
+(`TransactionTestCase`, real threads). Cooperative cancellation checked
+between steps and mid-token-stream. Celery-level guard skips re-running a
+task against a job already in a terminal state.
 
 ---
 
@@ -326,7 +383,16 @@ The roles are:
 - Permissions are enforced server-side.
 - The implemented role names match `Adjuster` and `Manager`.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** JWT auth (Djoser + SimpleJWT). Role names `ADJUSTER`/
+`MANAGER` on `User.role`. Access rule in
+`domain/policies/claim_access_policy.py` (framework-free), enforced via
+`presentation/api/permissions.py` (`CanAccessClaim`, `IsManager`) on every
+endpoint including SSE (manual JWT check, since `StreamingHttpResponse`
+bypasses DRF's normal permission pipeline). `tests/test_auth_and_roles.py`
+verifies: unauthenticated rejected, owning Adjuster allowed, a different
+Adjuster forbidden (403), Manager allowed on any claim.
 
 ---
 
@@ -345,7 +411,15 @@ The system shall support:
 - Agent/job progress can be sent to the client.
 - The user can observe the current workflow status.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** Agents use `LLMProvider.stream_completion()` (real
+provider-level token streaming, not a post-hoc split of a completed
+response). `agent_started` / `agent_progress` / `token` / `agent_complete`
+events published per job via Redis Streams
+(`infrastructure/events/redis_job_event_publisher.py`), consumed over SSE
+(`presentation/api/sse.py`) with history replay and `Last-Event-ID`
+reconnect support. `tests/test_fr6_realtime.py`, `tests/test_sse_replay.py`.
 
 ---
 
@@ -358,7 +432,18 @@ The system shall provide traceability for workflow executions.
 A workflow run can be identified and inspected, including relevant
 agent, tool, retrieval, and LLM activity.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `application/use_cases/get_run_trace.py` +
+`infrastructure/persistence/django_trace_repository.py` return the full
+Agent → Tool → Evidence → Approval → Decision chain for a Job ID, with
+`Approval`/`Decision` scoped by `job_id` (not just `claim_id`) so a trace
+for one run cannot include another run's approval on the same claim.
+Correlation ID passed explicitly through Celery task arguments (not
+thread-local, which does not cross the Django/worker process boundary) and
+recorded on every `AgentRun`. Real per-agent input/output token counts
+captured from each provider's actual usage data. `GET /api/health/` and
+`GET /api/health/ready/` (DB + Redis checks).
 
 ---
 
@@ -380,7 +465,17 @@ The evaluation shall report:
 - The evaluation can be executed.
 - Results are recorded.
 
-**Status:** Planned
+**Status:** Implemented
+
+**Evidence:** `backend/evaluation/golden_set.py` — 26 cases (20 normal, 6
+adversarial: 2 out-of-corpus, 2 ambiguous, 1 prompt injection, 1
+conflicting policy version). Runnable via `manage.py run_evaluation`. Real
+recorded baseline in `docs/EVALUATION.md`: 81.0% retrieval hit-rate (17/21),
+80.8% refusal correctness (21/26), with honest interpretation of every
+miss — including the specific cause found and documented for the
+refusal-threshold cases (embedding anisotropy, not a tunable bug).
+Groundedness is explicitly scoped as retrieval-level in this evaluation
+pass, not yet full answer-level.
 
 ---
 
@@ -398,7 +493,18 @@ The system shall maintain persistent session history.
 - Session history persists across sessions.
 - The UI provides access to the required claim/adjudication workflow.
 
-**Status:** Planned
+**Status:** Partial
+
+**Evidence:** OpenAPI schema + Swagger UI via drf-spectacular
+(`/api/schema/`, `/api/docs/`), all endpoints annotated with
+`@extend_schema` including response serializers. Minimal React UI (Redux
+Toolkit, React Query, React Hook Form, React Router, React-Bootstrap)
+covers login, claims list/detail, ask, run with live SSE progress,
+approval, trace, policy upload, history. **Gap:** JWT refresh keeps a
+login session alive across browser restarts, but there is no dedicated
+persistent session-history log beyond the existing `AuditLog`/trace
+records — a claim's trace effectively serves this purpose today, but a
+first-class "session history" view has not been separately built.
 
 ---
 
@@ -505,26 +611,23 @@ Design document.
 
 ## 9. Traceability Matrix
 
-The matrix is a Day-1 baseline and will be updated as implementation
-progresses.
-
 | Requirement | Status | Evidence |
 |---|---|---|
-| BR-01 | Planned | To be added during implementation |
-| BR-02 | Planned | To be added during implementation |
-| BR-03 | Planned | To be added during implementation |
-| BR-04 | Planned | To be added during implementation |
-| BR-05 | Planned | To be added during implementation |
-| BR-06 | Planned | To be added during implementation |
-| BR-07 | Planned | To be added during implementation |
-| BR-08 | Planned | To be added during implementation |
-| BR-09 | Planned | To be added during implementation |
-| BR-10 | Planned | To be added during implementation |
-| BR-11 | Planned | To be added during implementation |
-| BR-12 | Planned | To be added during implementation |
-| BR-13 | Planned | To be added during implementation |
-| BR-14 | Planned | To be added during implementation |
-| BR-15 | Planned | To be added during implementation |
+| BR-01 | Implemented | `infrastructure/ingestion/`, `IngestDocumentUseCase` |
+| BR-02 | Implemented | `DenseRetriever` + `KeywordRetriever` + RRF (ADR-005) |
+| BR-03 | Implemented | `get_policy_version` tool, adversarial eval case |
+| BR-04 | Implemented | `format_citation.py`, refusal gating (ADR-005) |
+| BR-05 | Implemented | 3 agents + `AdjudicationPipelineOrchestrator` (ADR-002) |
+| BR-06 | Implemented | 4 tools + gated `finalize_adjudication`, `ToolGateway` |
+| BR-07 | Implemented | `calculate_payout.py`, unit-tested |
+| BR-08 | Implemented | `ApprovalGateUseCase`, `test_day6_orchestration.py` |
+| BR-09 | Implemented | Celery + Redis; measured 0.130s response vs 9.06s work |
+| BR-10 | Implemented | Atomic `JobStep` claiming, `test_step_claim_concurrency.py` |
+| BR-11 | Implemented | JWT + domain access policy, `test_auth_and_roles.py` |
+| BR-12 | Implemented | Real `stream_completion`, SSE + replay, `test_fr6_realtime.py` |
+| BR-13 | Implemented | Job-scoped trace, explicit correlation ID, real token counts |
+| BR-14 | Implemented | 26-case golden set, real recorded results in `EVALUATION.md` |
+| BR-15 | Partial | OpenAPI + minimal UI done; dedicated session-history view not built |
 
 ### Status Definitions
 
@@ -538,10 +641,11 @@ progresses.
 
 ## 10. Document Status
 
-This is the initial Day-1 BRD baseline.
-
-The document may be updated during implementation when requirements are
-clarified or when the implementation status changes.
+This BRD has been updated from the Day-1 baseline to reflect actual
+implementation status and evidence. 14 of 15 business requirements are
+fully implemented; BR-15 is partial, with the specific gap (a dedicated
+session-history view, distinct from the existing audit/trace records)
+stated explicitly rather than left silent.
 
 Technical implementation details belong in:
 
