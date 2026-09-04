@@ -15,3 +15,19 @@ class CorrelationIdMiddleware:
         response = self.get_response(request)
         response["X-Correlation-ID"] = correlation_id
         return response
+
+
+class SecurityHeadersMiddleware:
+    """Adds security headers to every response that are not handled by Django's
+    SecurityMiddleware (which only sets them on HTTPS in production)."""
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response["X-Frame-Options"] = "DENY"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Instruct browsers to use CSP instead of legacy XSS filter
+        response["X-XSS-Protection"] = "0"
+        return response
