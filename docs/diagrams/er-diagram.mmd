@@ -1,3 +1,7 @@
+---
+config:
+  layout: elk
+---
 erDiagram
 
     USER {
@@ -6,7 +10,6 @@ erDiagram
         string email
         string role
     }
-
     CLIENT {
         uuid id PK
         string name
@@ -26,6 +29,8 @@ erDiagram
         string version
         date effective_from
         date effective_to
+        decimal policy_limit
+        decimal deductible
     }
 
     DOCUMENT {
@@ -34,6 +39,9 @@ erDiagram
         string filename
         string file_type
         string status
+        string content_hash
+        text error_message
+        string embedding_provider
         datetime created_at
     }
 
@@ -43,6 +51,8 @@ erDiagram
         int page_number
         string section
         text content
+        string clause
+        text search_content
         vector embedding
     }
 
@@ -53,6 +63,7 @@ erDiagram
         int adjuster_id FK
         date claim_date
         string status
+        decimal final_payout
         datetime created_at
     }
 
@@ -79,12 +90,16 @@ erDiagram
         string agent_name
         json input_data
         json output_data
+        int input_tokens
+        int output_tokens
+        string correlation_id
         datetime created_at
     }
 
     APPROVAL {
         uuid id PK
         uuid claim_id FK
+        uuid job_id FK
         int approver_id FK
         string status
         text comment
@@ -94,9 +109,11 @@ erDiagram
     DECISION {
         uuid id PK
         uuid claim_id FK
+        uuid job_id FK
         int approved_by_id FK
         string outcome
         text rationale
+        decimal final_payout
         datetime created_at
     }
 
@@ -110,8 +127,7 @@ erDiagram
         datetime created_at
     }
 
-
-    CLIENT ||--o{ POLICY : has
+    CLIENT ||--o{ POLICY : owns
     POLICY ||--o{ POLICY_VERSION : has
     POLICY_VERSION ||--o{ DOCUMENT : contains
     DOCUMENT ||--o{ DOCUMENT_CHUNK : contains
@@ -120,14 +136,16 @@ erDiagram
     POLICY_VERSION o|--o{ CLAIM : applies_to
     USER ||--o{ CLAIM : handles
 
-    CLAIM ||--o{ JOB : has
+    CLAIM ||--o{ JOB : creates
     JOB ||--o{ JOB_STEP : contains
     JOB ||--o{ AGENT_RUN : executes
 
     CLAIM ||--o{ APPROVAL : requires
+    JOB o|--o{ APPROVAL : relates_to
     USER ||--o{ APPROVAL : approves
 
     CLAIM ||--o{ DECISION : has
+    JOB o|--o{ DECISION : produces
     USER ||--o{ DECISION : makes
 
     JOB o|--o{ AUDIT_LOG : generates
