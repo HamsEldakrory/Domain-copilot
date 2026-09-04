@@ -1,9 +1,10 @@
 import axios from "axios";
 import { store } from "../store";
 import { setTokens, logout } from "../store/authSlice";
+import { getApiBaseUrl } from "./config";
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: getApiBaseUrl(),
 });
 
 client.interceptors.request.use((config) => {
@@ -30,7 +31,7 @@ client.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/jwt/refresh/`,
+          `${getApiBaseUrl()}/auth/jwt/refresh/`,
           { refresh },
         );
         const newAccess = response.data.access;
