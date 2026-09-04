@@ -15,6 +15,7 @@ import AppShell from "../components/AppShell";
 import StatusBadge from "../components/StatusBadge";
 import ConfirmDialog from "../components/ConfirmDialog";
 import EditApproveDialog from "../components/EditApproveDialog";
+import { buildJobStreamUrl } from "../api/config";
 const AGENT_EVENT_TYPES = ["agent_started", "agent_progress", "agent_complete"];
 function getStreamEntryClass(type) {
   if (type === "token") return "stream-entry-token";
@@ -232,6 +233,8 @@ export default function ClaimDetail() {
   const [cancelDialog, setCancelDialog] = useState(false);
   const esRef = useRef(null);
   const streamRef = useRef(null);
+  const streamClosedRef = useRef(false);
+  const streamTerminalRef = useRef(false);
 
   const access = useSelector((state) => state.auth.access);
   const approval = useApprovalDecision(jobId);
@@ -286,8 +289,10 @@ export default function ClaimDetail() {
           setJobId(newJobId);
           setEvents([]);
           setIsStreaming(true);
+          streamClosedRef.current = false;
+          streamTerminalRef.current = false;
           esRef.current?.close();
-          const url = `${import.meta.env.VITE_API_BASE_URL}/jobs/${newJobId}/stream/?access=${access}`;
+          const url = buildJobStreamUrl(newJobId, access);
           const es = new EventSource(url);
           esRef.current = es;
 
@@ -302,6 +307,22 @@ export default function ClaimDetail() {
             "error",
           ];
 
+          const closeStream = () => {
+            streamClosedRef.current = true;
+            es.close();
+          };
+
+          const markTerminal = (status) => {
+            if (
+              status === "COMPLETED" ||
+              status === "FAILED" ||
+              status === "CANCELLED" ||
+              status === "WAITING_APPROVAL"
+            ) {
+              streamTerminalRef.current = true;
+            }
+          };
+
           ALL_TYPES.forEach((type) => {
             es.addEventListener(type, (event) => {
               let parsed;
@@ -313,11 +334,13 @@ export default function ClaimDetail() {
               setEvents((prev) => [...prev, { type, data: parsed }]);
               if (type === "done" || type === "timeout" || type === "error") {
                 setIsStreaming(false);
-                es.close();
+                streamTerminalRef.current = true;
+                closeStream();
               }
 
               if (type === "status") {
                 const s = parsed?.status;
+                markTerminal(s);
                 if (
                   s === "COMPLETED" ||
                   s === "FAILED" ||
@@ -325,7 +348,7 @@ export default function ClaimDetail() {
                   s === "WAITING_APPROVAL"
                 ) {
                   setIsStreaming(false);
-                  if (s !== "WAITING_APPROVAL") es.close();
+                  if (s !== "WAITING_APPROVAL") closeStream();
                 }
               }
             });
@@ -333,11 +356,20 @@ export default function ClaimDetail() {
 
           es.onerror = () => {
             setIsStreaming(false);
+            if (streamClosedRef.current || streamTerminalRef.current) {
+              return;
+            }
             setEvents((prev) => [
               ...prev,
-              { type: "error", data: { message: "SSE connection lost." } },
+              {
+                type: "error",
+                data: {
+                  message:
+                    "SSE connection lost. Check that Redis and the Celery worker are running.",
+                },
+              },
             ]);
-            es.close();
+            closeStream();
           };
 
           streamRef.current = es;

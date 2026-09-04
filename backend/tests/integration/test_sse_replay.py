@@ -1,8 +1,6 @@
 import json
-
 from django.test import TestCase
 from django.test.client import RequestFactory
-
 from infrastructure.persistence.models import (
     Claim,
     Client,
@@ -13,8 +11,6 @@ from infrastructure.persistence.models import (
 )
 from presentation.api.sse import job_progress_stream
 from tests.support import make_token, redis_client
-
-
 class SSEReplayTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -44,7 +40,6 @@ class SSEReplayTests(TestCase):
         self.redis.xadd(stream_key, {"type": "agent_started", "data": json.dumps({"agent": "coverage_matcher"})})
         self.redis.xadd(stream_key, {"type": "token", "data": json.dumps({"token": "hello"})})
         self.redis.xadd(stream_key, {"type": "status", "data": json.dumps({"status": "COMPLETED"})})
-
         request = self._make_request(job.id)
         response = job_progress_stream(request, str(job.id))
         body = b"".join(response.streaming_content).decode()
@@ -79,3 +74,39 @@ class SSEReplayTests(TestCase):
 
         self.assertIn("A-only", body)
         self.assertNotIn("B-only", body)
+
+    def test_unauthenticated_stream_forbidden(self):
+        job = Job.objects.create(claim=self.claim, status="RUNNING")
+        request = self.factory.get(f"/api/jobs/{job.id}/stream/")
+        response = job_progress_stream(request, str(job.id))
+        self.assertEqual(response.status_code, 401)
+        body = b"".join(response.streaming_content).decode()
+        self.assertIn("Authentication required", body)
+
+    def test_other_adjuster_stream_forbidden(self):
+        other = User.objects.create(username="other_adj", role="ADJUSTER")
+        job = Job.objects.create(claim=self.claim, status="RUNNING")
+        token = make_token(other)
+        request = self.factory.get(
+            f"/api/jobs/{job.id}/stream/",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+        response = job_progress_stream(request, str(job.id))
+        self.assertEqual(response.status_code, 403)
+        body = b"".join(response.streaming_content).decode()
+        self.assertIn("do not have access", body)
+
+    def test_manager_can_stream_any_claim_job(self):
+        manager = User.objects.create(username="mgr_stream", role="MANAGER")
+        job = Job.objects.create(claim=self.claim, status="COMPLETED")
+        stream_key = f"job-events:{job.id}"
+        self.redis.xadd(stream_key, {"type": "status", "data": json.dumps({"status": "COMPLETED"})})
+
+        request = self.factory.get(
+            f"/api/jobs/{job.id}/stream/",
+            HTTP_AUTHORIZATION=f"Bearer {make_token(manager)}",
+        )
+        response = job_progress_stream(request, str(job.id))
+        self.assertEqual(response.status_code, 200)
+        body = b"".join(response.streaming_content).decode()
+        self.assertIn("COMPLETED", body)
