@@ -158,42 +158,30 @@ class PolicyUploadView(APIView):
         ext = uploaded.name.lower().rsplit(".", 1)[-1]
         saved_path = default_storage.save(f"policy_uploads/{uploaded.name}", uploaded)
         abs_path = default_storage.path(saved_path)
-
         document = Document.objects.create(
             policy_version=policy_version, filename=uploaded.name, file_type=ext, status="pending",
         )
         try:
             ingest_document_task.delay(str(document.id), abs_path, ext)
         except Exception as exc:
-            # Do not silently fall back — delete the orphaned Document record so
-            # the manager knows the upload did not succeed, then surface the error.
             document.delete()
             return Response(
                 {"error": f"Task broker unavailable — ingestion cannot proceed: {exc}"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-
         return Response(DocumentStatusSerializer(document).data, status=status.HTTP_202_ACCEPTED)
-
-
 class DocumentStatusView(APIView):
     permission_classes = [IsAuthenticated]
-
     @extend_schema(responses={200: DocumentStatusSerializer, 404: ErrorResponseSerializer})
     def get(self, request, document_id):
         doc = Document.objects.filter(id=document_id).first()
         if not doc:
             return Response({"error": "Not found"}, status=404)
         return Response(DocumentStatusSerializer(doc).data)
-
-
 class DocumentListView(APIView):
     permission_classes = [IsAuthenticated]
-
     @extend_schema(responses={200: DocumentStatusSerializer(many=True)})
     def get(self, request):
-        # annotate avoids an N+1: prefetch_related + chunks.count() still fires
-        # one SELECT COUNT(*) per row. A single annotated query returns all counts.
         docs = (
             Document.objects
             .select_related("policy_version__policy")
@@ -334,9 +322,7 @@ class ApprovalDecisionView(APIView):
 
 
 class CreateClaimView(APIView):
-    """Adjuster-facing: create a new claim and assign it to themselves."""
     permission_classes = [IsAuthenticated]
-
     @extend_schema(
         operation_id="create_claim",
         request=None,
@@ -354,7 +340,6 @@ class CreateClaimView(APIView):
         client = Client.objects.filter(id=v["client_id"]).first()
         if not client:
             return Response({"error": "Client not found"}, status=status.HTTP_400_BAD_REQUEST)
-
         policy_version = None
         if v.get("policy_version_id"):
             policy_version = PolicyVersion.objects.filter(id=v["policy_version_id"]).first()
@@ -370,11 +355,8 @@ class CreateClaimView(APIView):
         )
         return Response(ClaimListSerializer(claim).data, status=status.HTTP_201_CREATED)
 
-
 class ClientListView(APIView):
-    """Return all clients for populating the Create Claim dropdown."""
     permission_classes = [IsAuthenticated]
-
     @extend_schema(operation_id="clients_list", responses=dict)
     def get(self, request):
         from infrastructure.persistence.models import Client
@@ -384,9 +366,7 @@ class ClientListView(APIView):
 
 
 class PolicyVersionListView(APIView):
-    """Return all policy versions for populating the Create Claim dropdown."""
     permission_classes = [IsAuthenticated]
-
     @extend_schema(operation_id="policy_versions_list", responses=dict)
     def get(self, request):
         from infrastructure.persistence.models import PolicyVersion
