@@ -331,3 +331,67 @@ class ApprovalDecisionView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=400)
         return Response({"status": result.status})
+
+
+class CreateClaimView(APIView):
+    """Adjuster-facing: create a new claim and assign it to themselves."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="create_claim",
+        request=None,
+        responses={201: ClaimListSerializer, 400: ErrorResponseSerializer},
+        description="Create a new claim. The authenticated adjuster is automatically set as the claim owner.",
+    )
+    def post(self, request):
+        from presentation.api.serializers import CreateClaimSerializer
+        from infrastructure.persistence.models import Client, PolicyVersion
+
+        serializer = CreateClaimSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+
+        client = Client.objects.filter(id=v["client_id"]).first()
+        if not client:
+            return Response({"error": "Client not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        policy_version = None
+        if v.get("policy_version_id"):
+            policy_version = PolicyVersion.objects.filter(id=v["policy_version_id"]).first()
+            if not policy_version:
+                return Response({"error": "Policy version not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        claim = Claim.objects.create(
+            client=client,
+            policy_version=policy_version,
+            adjuster=request.user,
+            claim_date=v["claim_date"],
+            status="submitted",
+        )
+        return Response(ClaimListSerializer(claim).data, status=status.HTTP_201_CREATED)
+
+
+class ClientListView(APIView):
+    """Return all clients for populating the Create Claim dropdown."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(operation_id="clients_list", responses=dict)
+    def get(self, request):
+        from infrastructure.persistence.models import Client
+        from presentation.api.serializers import ClientSerializer
+        clients = Client.objects.order_by("name")
+        return Response(ClientSerializer(clients, many=True).data)
+
+
+class PolicyVersionListView(APIView):
+    """Return all policy versions for populating the Create Claim dropdown."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(operation_id="policy_versions_list", responses=dict)
+    def get(self, request):
+        from infrastructure.persistence.models import PolicyVersion
+        from presentation.api.serializers import PolicyVersionOptionSerializer
+        versions = PolicyVersion.objects.select_related("policy").order_by(
+            "policy__policy_number", "version"
+        )
+        return Response(PolicyVersionOptionSerializer(versions, many=True).data)

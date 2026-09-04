@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from infrastructure.persistence.models import Claim, Document, User
+from infrastructure.persistence.models import Claim, Client, Document, PolicyVersion, User
 
 
 class AdjudicateRequestSerializer(serializers.Serializer):
@@ -69,8 +69,6 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
     policy_version = serializers.CharField(
         source="policy_version.version", read_only=True, default=None,
     )
-    # Monetary fields serialised as exact decimal strings — float cannot represent
-    # most monetary fractions exactly (0.1 + 0.2 != 0.3 in IEEE 754).
     policy_limit = serializers.DecimalField(
         source="policy_version.policy_limit", max_digits=12, decimal_places=2,
         read_only=True, default=None, coerce_to_string=True,
@@ -79,8 +77,6 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
         source="policy_version.deductible", max_digits=12, decimal_places=2,
         read_only=True, default=None, coerce_to_string=True,
     )
-    # chunk_count is injected by annotate(chunk_count=Count("chunks")) in DocumentListView.
-    # Do NOT use source="chunks.count" — that fires one extra SELECT COUNT(*) per row (N+1).
     chunk_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
@@ -151,8 +147,31 @@ class ApprovalDecisionRequestSerializer(serializers.Serializer):
     outcome = serializers.CharField(required=False, allow_blank=True)
     rationale = serializers.CharField(required=False, allow_blank=True)
     comment = serializers.CharField(required=False, allow_blank=True)
-    # Accept exact decimal strings ("4500.00") from the UI — never pass through float.
     final_payout = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True, coerce_to_string=False,
     )
     original_recommendation = serializers.DictField(required=False, allow_null=True)
+
+
+class CreateClaimSerializer(serializers.Serializer):
+    client_id = serializers.UUIDField()
+    policy_version_id = serializers.UUIDField(required=False, allow_null=True)
+    claim_date = serializers.DateField()
+
+
+class ClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = ["id", "name"]
+
+
+class PolicyVersionOptionSerializer(serializers.ModelSerializer):
+    policy_number = serializers.CharField(source="policy.policy_number", read_only=True)
+    label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PolicyVersion
+        fields = ["id", "policy_number", "version", "label", "effective_from", "effective_to"]
+
+    def get_label(self, obj):
+        return f"{obj.policy.policy_number} — v{obj.version}"
