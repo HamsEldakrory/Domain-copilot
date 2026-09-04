@@ -285,7 +285,7 @@ class JobTraceView(APIView):
         return Response([{"timestamp": e.timestamp, "kind": e.kind, "detail": e.detail} for e in trace])
 
 class ApprovalDecisionView(APIView):
-    permission_classes = [IsAuthenticated, IsManager, CanAccessClaim]
+    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
     @extend_schema(
         operation_id="approval_decision",
         request=ApprovalDecisionRequestSerializer,
@@ -322,7 +322,7 @@ class ApprovalDecisionView(APIView):
 
 
 class CreateClaimView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdjuster]
     @extend_schema(
         operation_id="create_claim",
         request=None,
