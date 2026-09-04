@@ -1,23 +1,34 @@
 from celery import shared_task
+
+
 @shared_task(bind=True)
 def adjudicate_claim_task(self, job_id: str, claim_id: str, claimed_amount: float, correlation_id: str | None = None, deductible_override: float | None = None):
-    from infrastructure.composition_root import build_embedding_provider, build_completion_provider
-    from infrastructure.retrieval.dense_retriever import DenseRetriever
-    from infrastructure.retrieval.keyword_retriever import KeywordRetriever
-    from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
-    from infrastructure.tools.get_policy_version import GetPolicyVersionTool
-    from infrastructure.tools.search_policy import SearchPolicyTool
-    from infrastructure.tools.calculate_payout import CalculatePayoutTool
-    from infrastructure.tools.detect_anomaly import DetectAnomalyTool
+    from application.agents.adjudication_drafter import AdjudicationDrafterAgent
     from application.agents.coverage_matcher import CoverageMatcherAgent
     from application.agents.exclusion_analyst import ExclusionAnalystAgent
-    from application.agents.adjudication_drafter import AdjudicationDrafterAgent
-    from application.use_cases.adjudication_pipeline import AdjudicationPipelineOrchestrator
-    from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
-    from infrastructure.persistence.policy_lookup import django_policy_limit_lookup
-    from infrastructure.persistence.django_cancellation_checker import DjangoCancellationChecker
-    from infrastructure.events.redis_job_event_publisher import RedisJobEventPublisher
+    from application.use_cases.adjudication_pipeline import (
+        AdjudicationPipelineOrchestrator,
+    )
+    from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
     from domain.job_states import JOB_TERMINAL_STATUSES
+    from infrastructure.composition_root import (
+        build_completion_provider,
+        build_embedding_provider,
+    )
+    from infrastructure.events.redis_job_event_publisher import RedisJobEventPublisher
+    from infrastructure.persistence.django_agent_run_recorder import (
+        DjangoAgentRunRecorder,
+    )
+    from infrastructure.persistence.django_cancellation_checker import (
+        DjangoCancellationChecker,
+    )
+    from infrastructure.persistence.policy_lookup import django_policy_limit_lookup
+    from infrastructure.retrieval.dense_retriever import DenseRetriever
+    from infrastructure.retrieval.keyword_retriever import KeywordRetriever
+    from infrastructure.tools.calculate_payout import CalculatePayoutTool
+    from infrastructure.tools.detect_anomaly import DetectAnomalyTool
+    from infrastructure.tools.get_policy_version import GetPolicyVersionTool
+    from infrastructure.tools.search_policy import SearchPolicyTool
 
     event_publisher = RedisJobEventPublisher()
     cancellation_checker = DjangoCancellationChecker()
@@ -55,12 +66,12 @@ def _get_job_status(job_id):
 
 @shared_task
 def ingest_document_task(document_id: str, file_path: str, file_extension: str):
-    from infrastructure.persistence.django_chunk_repository import DjangoChunkRepository
-    from infrastructure.ingestion.pdf_extractor import PdfExtractor
-    from infrastructure.ingestion.docx_extractor import DocxExtractor
-    from infrastructure.ingestion.section_chunker import NumberedHeadingChunker
-    from infrastructure.composition_root import build_embedding_provider
     from application.use_cases.ingest_document import IngestDocumentUseCase
+    from infrastructure.composition_root import build_embedding_provider
+    from infrastructure.ingestion.docx_extractor import DocxExtractor
+    from infrastructure.ingestion.pdf_extractor import PdfExtractor
+    from infrastructure.ingestion.section_chunker import NumberedHeadingChunker
+    from infrastructure.persistence.django_chunk_repository import DjangoChunkRepository
 
     extractor = PdfExtractor() if file_extension == "pdf" else DocxExtractor()
     embedding_provider_name = __import__("os").getenv("EMBEDDING_PROVIDER", "openai")

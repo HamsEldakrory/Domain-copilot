@@ -1,7 +1,9 @@
 from pgvector.django import CosineDistance
-from domain.ports.retriever import Retriever, RetrievedChunk
+
 from domain.ports.llm_provider import LLMProvider
+from domain.ports.retriever import RetrievedChunk, Retriever
 from infrastructure.persistence.models import DocumentChunk
+
 
 class DenseRetriever(Retriever):
     def __init__(self, llm_provider: LLMProvider):

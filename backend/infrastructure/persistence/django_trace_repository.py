@@ -1,5 +1,13 @@
 from application.use_cases.get_run_trace import TraceEntry
-from infrastructure.persistence.models import AgentRun, AuditLog, Job, Approval, Decision
+from infrastructure.persistence.models import (
+    AgentRun,
+    Approval,
+    AuditLog,
+    Decision,
+    Job,
+)
+
+
 class DjangoTraceRepository:
     def get_trace(self, job_id: str) -> list[TraceEntry]:
         entries = []

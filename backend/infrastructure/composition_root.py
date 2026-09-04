@@ -3,10 +3,11 @@
 # get wired to the abstract Ports defined in domain/ports. Application
 # and Domain code never see this file — they only ever see the Ports.
 import os
+
 from application.container import container
 from domain.ports.llm_provider import LLMProvider
-from infrastructure.llm.openai_provider import OpenAIProvider
 from infrastructure.llm.ollama_provider import OllamaProvider
+from infrastructure.llm.openai_provider import OpenAIProvider
 
 PROVIDERS = {
     "openai": OpenAIProvider,

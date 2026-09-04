@@ -1,7 +1,13 @@
 from dataclasses import dataclass
-from domain.errors.domain_errors import InvalidJobStateTransitionError, MissingEditValuesError
+
+from domain.errors.domain_errors import (
+    InvalidJobStateTransitionError,
+    MissingEditValuesError,
+)
 from domain.ports.audit_logger import AuditLogger
 from domain.ports.tool import Tool
+
+
 @dataclass
 class ApprovalDecisionResult:
     status: str  # "approved" | "rejected" | "edited_and_approved"

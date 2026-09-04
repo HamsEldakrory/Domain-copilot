@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from domain.ports.retriever import Retriever, RetrievedChunk
+
+from domain.ports.retriever import RetrievedChunk, Retriever
+
+
 @dataclass
 class RetrievalResult:
     chunks: list[RetrievedChunk]

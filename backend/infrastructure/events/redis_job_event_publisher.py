@@ -1,7 +1,9 @@
 import json
+
 import redis
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
+
 from domain.ports.job_event_publisher import JobEventPublisher
 
 STREAM_TTL_SECONDS = 3600  # cleanup - events for a job don't need to outlive an hour

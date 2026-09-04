@@ -1,8 +1,11 @@
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
+
 from domain.ports.agent_run_recorder import AgentRunRecorder
 from domain.ports.job_event_publisher import JobEventPublisher
-from infrastructure.persistence.models import Job, AgentRun, JobStep
+from infrastructure.persistence.models import AgentRun, Job, JobStep
+
+
 class DjangoAgentRunRecorder(AgentRunRecorder):
     def __init__(self, existing_job_id: str | None = None, event_publisher: JobEventPublisher | None = None):
         self._existing_job_id = existing_job_id

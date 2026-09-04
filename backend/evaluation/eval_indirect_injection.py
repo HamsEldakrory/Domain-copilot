@@ -1,14 +1,16 @@
 import os
-import django
 import sys
+
+import django
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 from application.agents.coverage_matcher import CoverageMatcherAgent
-from infrastructure.composition_root import build_llm_provider
 from domain.ports.agent import AgentInput
 from domain.ports.tool import ToolResult
+from infrastructure.composition_root import build_llm_provider
+
 
 def get_policy_version_stub(claim_id=None):
     from infrastructure.persistence.models import PolicyVersion

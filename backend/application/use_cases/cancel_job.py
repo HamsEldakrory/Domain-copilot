@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 from domain.job_states import JOB_TERMINAL_STATUSES as TERMINAL_STATUSES
+
 
 @dataclass
 class CancelJobResult:

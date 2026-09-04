@@ -1,25 +1,32 @@
 from django.core.management.base import BaseCommand, CommandError
-from infrastructure.composition_root import build_embedding_provider, build_completion_provider
-from infrastructure.retrieval.dense_retriever import DenseRetriever
-from infrastructure.retrieval.keyword_retriever import KeywordRetriever
-from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
-from infrastructure.tools.get_policy_version import GetPolicyVersionTool
-from infrastructure.tools.search_policy import SearchPolicyTool
-from infrastructure.tools.calculate_payout import CalculatePayoutTool
-from infrastructure.tools.detect_anomaly import DetectAnomalyTool
-from infrastructure.tools.finalize_adjudication import FinalizeAdjudicationTool
+
+from application.agents.adjudication_drafter import AdjudicationDrafterAgent
 from application.agents.coverage_matcher import CoverageMatcherAgent
 from application.agents.exclusion_analyst import ExclusionAnalystAgent
-from application.agents.adjudication_drafter import AdjudicationDrafterAgent
 from application.use_cases.adjudication_pipeline import AdjudicationPipelineOrchestrator
 from application.use_cases.approval_gate import ApprovalGateUseCase
 from application.use_cases.get_run_trace import GetRunTraceUseCase
+from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
+from infrastructure.composition_root import (
+    build_completion_provider,
+    build_embedding_provider,
+)
 from infrastructure.persistence.django_agent_run_recorder import DjangoAgentRunRecorder
+from infrastructure.persistence.django_approval_repository import (
+    DjangoApprovalRepository,
+)
 from infrastructure.persistence.django_audit_logger import DjangoAuditLogger
-from infrastructure.persistence.django_approval_repository import DjangoApprovalRepository
 from infrastructure.persistence.django_trace_repository import DjangoTraceRepository
-from infrastructure.persistence.policy_lookup import django_policy_limit_lookup
 from infrastructure.persistence.models import User
+from infrastructure.persistence.policy_lookup import django_policy_limit_lookup
+from infrastructure.retrieval.dense_retriever import DenseRetriever
+from infrastructure.retrieval.keyword_retriever import KeywordRetriever
+from infrastructure.tools.calculate_payout import CalculatePayoutTool
+from infrastructure.tools.detect_anomaly import DetectAnomalyTool
+from infrastructure.tools.finalize_adjudication import FinalizeAdjudicationTool
+from infrastructure.tools.get_policy_version import GetPolicyVersionTool
+from infrastructure.tools.search_policy import SearchPolicyTool
+
 
 class Command(BaseCommand):
     help = "Run the full pipeline, approve it, and print the trace - Day 6 end-to-end."

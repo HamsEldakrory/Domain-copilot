@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from infrastructure.persistence.models import Claim, Client, Document, PolicyVersion, User
+
+from infrastructure.persistence.models import (
+    Claim,
+    Client,
+    Document,
+    PolicyVersion,
+    User,
+)
 
 
 class AdjudicateRequestSerializer(serializers.Serializer):

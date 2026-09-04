@@ -1,10 +1,12 @@
 import json
-from django.http import StreamingHttpResponse, HttpResponseForbidden
-from django.conf import settings
+
 import redis
+from django.conf import settings
+from django.http import HttpResponseForbidden, StreamingHttpResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from infrastructure.persistence.models import Job
+
 from domain.policies.claim_access_policy import can_access_claim
+from infrastructure.persistence.models import Job
 
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
 PAUSE_STATUSES = {"WAITING_APPROVAL"}

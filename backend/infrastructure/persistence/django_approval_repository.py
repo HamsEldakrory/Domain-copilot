@@ -2,6 +2,7 @@ from domain.ports.approval_repository import ApprovalRepository
 from domain.ports.job_event_publisher import JobEventPublisher
 from infrastructure.persistence.models import Approval, Job
 
+
 class DjangoApprovalRepository(ApprovalRepository):
     def __init__(self, event_publisher: JobEventPublisher | None = None):
         self._event_publisher = event_publisher

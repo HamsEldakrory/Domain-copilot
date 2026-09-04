@@ -1,4 +1,5 @@
 import re
+
 PAGE_BANNER_RE = re.compile(r"Synthetic training corpus\s*[—-]\s*Domain Copilot Page\s*\d+")
 
 def clean_text(text: str) -> str:

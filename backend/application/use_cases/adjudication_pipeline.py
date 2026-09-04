@@ -1,10 +1,17 @@
 import concurrent.futures
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+
+from application.support.retry import retry_with_backoff
+from domain.errors import (
+    JobCancelledError,
+    MaxIterationsExceededError,
+    StepAlreadyClaimedError,
+    StepTimeoutError,
+)
 from domain.ports.agent import AgentInput
 from domain.ports.agent_run_recorder import AgentRunRecorder
-from domain.errors import MaxIterationsExceededError, StepTimeoutError, JobCancelledError, StepAlreadyClaimedError
-from application.support.retry import retry_with_backoff
+
 MAX_ITERATIONS = 5
 STEP_TIMEOUT_SECONDS = 300
 

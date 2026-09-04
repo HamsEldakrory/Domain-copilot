@@ -1,6 +1,8 @@
 from django.db.models import Q
+
 from domain.ports.tool import Tool, ToolResult
 from infrastructure.persistence.models import Claim, PolicyVersion
+
 
 class GetPolicyVersionTool(Tool):
     name = "get_policy_version"
