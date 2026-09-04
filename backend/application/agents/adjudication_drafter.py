@@ -29,16 +29,23 @@ class AdjudicationDrafterAgent(Agent):
         deductible = input.context.get("deductible", 0)
         payout_result = self._gateway.call("calculate_payout", claimed_amount=claimed_amount, policy_limit=policy_limit, deductible=deductible)
         anomaly_result = self._gateway.call("detect_anomaly", claim_id=input.claim_id, claimed_amount=claimed_amount)
+
+        # Publish payout as its own SSE event so the frontend can display it prominently
+        self._publish(job_id, "payout", {
+            **payout_result.output,
+            "anomaly_flags": anomaly_result.output.get("flags", []),
+        })
         self._publish(job_id, "agent_progress", {"agent": self.name, "stage": "payout_and_anomaly_computed"})
 
         prompt = (
             "You are an Adjudication Drafter. Draft a short recommendation narrative for a "
-            "human adjuster to review. Do NOT state any dollar figure yourself - the payout "
-            "amount is computed separately and deterministically.\n\n"
+            "human adjuster to review. The payout has been calculated for you.\n\n"
             f"Coverage analysis: {input.context.get('coverage_summary', '')}\n"
             f"Exclusion analysis: {input.context.get('exclusion_summary', '')}\n"
-            f"Anomaly flags: {anomaly_result.output.get('flags', [])}\n\n"
-            "Write 2-3 sentences recommending approve, reject, or escalate, with reasoning."
+            f"Anomaly flags: {anomaly_result.output.get('flags', [])}\n"
+            f"Calculated Payout: ${payout_result.output.get('payout', 0):.2f}\n\n"
+            "Write 2-3 sentences recommending approve, reject, or escalate, with reasoning. "
+            "Make sure to explicitly mention the final calculated payout amount in your recommendation."
         )
         stream = self._llm.stream_completion([Message(role="user", content=prompt)])
         full_text = ""

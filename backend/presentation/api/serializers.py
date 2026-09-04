@@ -38,8 +38,8 @@ class PolicyUploadSerializer(serializers.Serializer):
     version = serializers.CharField()
     effective_from = serializers.DateField()
     effective_to = serializers.DateField(required=False, allow_null=True)
-    policy_limit = serializers.DecimalField(max_digits=12, decimal_places=2)
-    deductible = serializers.DecimalField(max_digits=12, decimal_places=2)
+    policy_limit = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
+    deductible = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
 
     def validate_file(self, value):
         ext = value.name.lower().rsplit(".", 1)[-1]
@@ -49,14 +49,54 @@ class PolicyUploadSerializer(serializers.Serializer):
 
 
 class DocumentStatusSerializer(serializers.ModelSerializer):
+    policy_number = serializers.CharField(source="policy_version.policy.policy_number", read_only=True, default=None)
+    policy_version = serializers.CharField(source="policy_version.version", read_only=True, default=None)
+    policy_limit = serializers.FloatField(source="policy_version.policy_limit", read_only=True, default=None)
+    deductible = serializers.FloatField(source="policy_version.deductible", read_only=True, default=None)
+    chunk_count = serializers.IntegerField(source="chunks.count", read_only=True, default=0)
+
     class Meta:
         model = Document
-        fields = ["id", "filename", "status", "error_message"]
+        fields = [
+            "id",
+            "filename",
+            "status",
+            "policy_number",
+            "policy_version",
+            "policy_limit",
+            "deductible",
+            "chunk_count",
+            "error_message",
+            "created_at",
+        ]
 
 class ClaimListSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source="client.name", read_only=True, default=None)
+    policy_number = serializers.CharField(source="policy_version.policy.policy_number", read_only=True, default=None)
+    policy_version = serializers.CharField(source="policy_version.version", read_only=True, default=None)
+    policy_version_id = serializers.UUIDField(source="policy_version.id", read_only=True, default=None)
+    policy_limit = serializers.FloatField(source="policy_version.policy_limit", read_only=True, default=None)
+    deductible = serializers.FloatField(source="policy_version.deductible", read_only=True, default=None)
+    adjuster_name = serializers.CharField(source="adjuster.username", read_only=True, default=None)
+    adjuster_email = serializers.CharField(source="adjuster.email", read_only=True, default=None)
+
     class Meta:
         model = Claim
-        fields = ["id", "claim_date", "status", "created_at"]
+        fields = [
+            "id",
+            "client_name",
+            "policy_number",
+            "policy_version",
+            "policy_version_id",
+            "policy_limit",
+            "deductible",
+            "adjuster_name",
+            "adjuster_email",
+            "claim_date",
+            "status",
+            "final_payout",
+            "created_at",
+        ]
 
 class AskRequestSerializer(serializers.Serializer):
     query = serializers.CharField()
@@ -67,3 +107,5 @@ class ApprovalDecisionRequestSerializer(serializers.Serializer):
     outcome = serializers.CharField(required=False, allow_blank=True)
     rationale = serializers.CharField(required=False, allow_blank=True)
     comment = serializers.CharField(required=False, allow_blank=True)
+    final_payout = serializers.FloatField(required=False, allow_null=True)
+    original_recommendation = serializers.DictField(required=False, allow_null=True)

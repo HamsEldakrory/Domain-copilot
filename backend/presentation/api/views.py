@@ -1,6 +1,7 @@
 import os
+import threading
 from statistics import correlation
-from celery import uuid
+import uuid
 from django.core.files.storage import default_storage
 from rest_framework.parsers import MultiPartParser
 from rest_framework.parsers import FormParser
@@ -10,7 +11,7 @@ from rest_framework import status
 from config.settings import CELERY_BROKER_URL
 from presentation.api.permissions import CanAccessClaim, IsManager
 from infrastructure.tasks import adjudicate_claim_task,ingest_document_task
-from infrastructure.persistence.models import Claim, Document, Job, User, Policy, PolicyVersion, Document, Client as ClientModel
+from infrastructure.persistence.models import Claim, Decision, Document, Job, User, Policy, PolicyVersion, Client as ClientModel
 from application.use_cases.cancel_job import CancelJobUseCase
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
@@ -20,6 +21,28 @@ from presentation.api.serializers import (
     JobStatusResponseSerializer, CancelResponseSerializer, ErrorResponseSerializer,DocumentStatusSerializer, UserBasicSerializer,
     PolicyUploadSerializer
 )
+def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, deductible_override):
+    # Try dispatching via Celery worker queue first
+    try:
+        adjudicate_claim_task.delay(job_id, claim_id, claimed_amount, correlation_id, deductible_override)
+        return
+    except Exception as e:
+        import logging
+        logging.warning(f"Celery dispatch unavailable ({e}), falling back to background thread daemon.")
+
+    # Fallback: run directly in a background daemon thread
+    def _run():
+        from django import db
+        db.close_old_connections()
+        adjudicate_claim_task.apply(
+            args=[job_id, claim_id, claimed_amount, correlation_id, deductible_override]
+        )
+
+    t = threading.Thread(target=_run, daemon=True, name=f"adjudication-{job_id[:8]}")
+    t.start()
+
+
+
 class AdjudicateView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
@@ -33,9 +56,9 @@ class AdjudicateView(APIView):
         claim_id = str(serializer.validated_data["claim_id"])
         claimed_amount = serializer.validated_data["claimed_amount"]
         deductible_override = serializer.validated_data.get("deductible_override")
-        correlation_id=getattr(request, "correlation_id", str(uuid.uuid4()))
+        correlation_id = getattr(request, "correlation_id", str(uuid.uuid4()))
         job = Job.objects.create(claim_id=claim_id, status="QUEUED")
-        adjudicate_claim_task.delay(str(job.id), claim_id, claimed_amount, correlation_id, deductible_override)
+        _dispatch_adjudication(str(job.id), claim_id, float(claimed_amount), correlation_id, deductible_override)
         return Response({"job_id": str(job.id), "status": "QUEUED", "correlation_id": correlation_id}, status=status.HTTP_202_ACCEPTED)
 class CreateAdjusterView(APIView):
     permission_classes = [IsAuthenticated, IsManager]
@@ -129,7 +152,8 @@ class PolicyUploadView(APIView):
             policy=policy, version=v["version"],
             defaults={
                 "effective_from": v["effective_from"], "effective_to": v.get("effective_to"),
-                "policy_limit": v["policy_limit"], "deductible": v["deductible"],
+                "policy_limit": v.get("policy_limit") or 50000.00,
+                "deductible": v.get("deductible") or 1000.00,
             },
         )
 
@@ -141,7 +165,16 @@ class PolicyUploadView(APIView):
         document = Document.objects.create(
             policy_version=policy_version, filename=uploaded.name, file_type=ext, status="pending",
         )
-        ingest_document_task.delay(str(document.id), abs_path, ext)
+        try:
+            ingest_document_task.delay(str(document.id), abs_path, ext)
+        except Exception as e:
+            import logging
+            logging.warning(f"Celery dispatch unavailable ({e}), falling back to background thread daemon.")
+            def _run_ingest():
+                from django import db
+                db.close_old_connections()
+                ingest_document_task.apply(args=[str(document.id), abs_path, ext])
+            threading.Thread(target=_run_ingest, daemon=True).start()
 
         return Response(DocumentStatusSerializer(document).data, status=status.HTTP_202_ACCEPTED)
 
@@ -155,6 +188,15 @@ class DocumentStatusView(APIView):
         if not doc:
             return Response({"error": "Not found"}, status=404)
         return Response(DocumentStatusSerializer(doc).data)
+
+
+class DocumentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: DocumentStatusSerializer(many=True)})
+    def get(self, request):
+        docs = Document.objects.select_related("policy_version__policy").prefetch_related("chunks").order_by("-created_at")
+        return Response(DocumentStatusSerializer(docs, many=True).data)
 
 @extend_schema(exclude=True)
 class HealthView(APIView):
@@ -189,7 +231,8 @@ class ClaimListView(APIView):
     def get(self, request):
         role = getattr(request.user, "role", "")
         qs = Claim.objects.all() if role == "MANAGER" else Claim.objects.filter(adjuster=request.user)
-        return Response(ClaimListSerializer(qs.order_by("-created_at"), many=True).data)
+        qs = qs.select_related("client", "policy_version__policy", "adjuster").order_by("-created_at")
+        return Response(ClaimListSerializer(qs, many=True).data)
 
 class ClaimDetailView(APIView):
     permission_classes = [IsAuthenticated, CanAccessClaim]
@@ -198,11 +241,22 @@ class ClaimDetailView(APIView):
         responses=ClaimListSerializer,
     )
     def get(self, request, claim_id):
-        claim = Claim.objects.filter(id=claim_id).first()
+        claim = Claim.objects.filter(id=claim_id).select_related("client", "policy_version__policy", "adjuster").first()
         if not claim:
             return Response({"error": "Not found"}, status=404)
         jobs = Job.objects.filter(claim_id=claim_id).order_by("-created_at").values("id", "status", "created_at")
-        return Response({**ClaimListSerializer(claim).data, "jobs": list(jobs)})
+        decisions = [
+            {
+                "id": str(d.id),
+                "outcome": d.outcome,
+                "rationale": d.rationale,
+                "final_payout": float(d.final_payout) if d.final_payout is not None else None,
+                "created_at": d.created_at,
+                "approved_by": d.approved_by.username if d.approved_by else None,
+            }
+            for d in Decision.objects.filter(claim_id=claim_id).select_related("approved_by").order_by("-created_at")
+        ]
+        return Response({**ClaimListSerializer(claim).data, "jobs": list(jobs), "decisions": decisions})
 
 class AskView(APIView):
     permission_classes = [IsAuthenticated]
@@ -211,7 +265,7 @@ class AskView(APIView):
         request=AskRequestSerializer,
         responses={200: dict},
     )
-    def post(self, request):
+    def post(self, request, claim_id=None):
         serializer = AskRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         from infrastructure.retrieval.dense_retriever import DenseRetriever
@@ -256,6 +310,10 @@ class ApprovalDecisionView(APIView):
 
         job = JobModel.objects.get(id=job_id)
         gate = ApprovalGateUseCase(DjangoApprovalRepository(), FinalizeAdjudicationTool(), DjangoAuditLogger())
+        final_payout = serializer.validated_data.get("final_payout")
+        if final_payout is not None:
+            final_payout = float(final_payout)
+
         try:
             result = gate.decide(
                 claim_id=str(job.claim_id), job_id=str(job_id), approver_id=str(request.user.id),
@@ -263,6 +321,8 @@ class ApprovalDecisionView(APIView):
                 outcome=serializer.validated_data.get("outcome"),
                 rationale=serializer.validated_data.get("rationale"),
                 comment=serializer.validated_data.get("comment", ""),
+                final_payout=final_payout,
+                original_recommendation=serializer.validated_data.get("original_recommendation"),
             )
         except Exception as e:
             return Response({"error": str(e)}, status=400)
