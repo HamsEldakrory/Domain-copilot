@@ -67,6 +67,7 @@ class Claim(models.Model):
     adjuster = models.ForeignKey(User, on_delete=models.PROTECT, related_name="claims")
     claim_date = models.DateField()
     status = models.CharField(max_length=50, default="submitted")
+    final_payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -120,6 +121,7 @@ class Decision(models.Model):
     approved_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="decisions")
     outcome = models.CharField(max_length=50)
     rationale = models.TextField(blank=True)
+    final_payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
