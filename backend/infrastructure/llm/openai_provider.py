@@ -1,13 +1,15 @@
 import os
+
 from openai import OpenAI
 
 from domain.ports.llm_provider import (
+    CompletionResult,
     LLMProvider,
     Message,
-    ToolDefinition,
     ToolCall,
-    CompletionResult,
+    ToolDefinition,
 )
+
 
 class OpenAITokenStream:
     def __init__(self, raw_stream):

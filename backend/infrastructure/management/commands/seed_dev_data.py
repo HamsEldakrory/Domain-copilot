@@ -11,9 +11,10 @@ Creates:
 Run: python manage.py seed_dev_data
 """
 from datetime import date
-from django.core.management.base import BaseCommand
-from infrastructure.persistence.models import Client, Claim, Policy, PolicyVersion, User
 
+from django.core.management.base import BaseCommand
+
+from infrastructure.persistence.models import Claim, Client, Policy, PolicyVersion, User
 
 MANAGERS = [
     {"username": "demo_manager", "role": "MANAGER", "password": "DemoPass123!"},

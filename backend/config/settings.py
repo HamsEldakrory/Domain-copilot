@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -28,7 +29,11 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-this-later")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 
 # Application definition
@@ -58,6 +63,15 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
+    "rest_framework.throttling.UserRateThrottle",
+    "rest_framework.throttling.AnonRateThrottle",
+]
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+    "user": "60/min",
+    "anon": "20/min",
+}
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Domain Copilot API",
     "DESCRIPTION": "Insurance claims adjudication copilot - D2 + T7",
@@ -75,6 +89,7 @@ SIMPLE_JWT = {
 }
 MIDDLEWARE = [
     "presentation.api.middleware.CorrelationIdMiddleware",
+    "presentation.api.middleware.SecurityHeadersMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -89,6 +104,7 @@ CORS_ALLOWED_ORIGINS = [
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+SECURE_CONTENT_TYPE_NOSNIFF = True
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [

@@ -17,6 +17,12 @@ function RequireAuth({ children }) {
   return children;
 }
 
+/** Smart root redirect: login page if unauthenticated, claims if logged in */
+function RootRedirect() {
+  const access = useSelector((state) => state.auth.access);
+  return <Navigate to={access ? "/claims" : "/login"} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -47,9 +53,9 @@ export default function App() {
           element={<RequireAuth><Users /></RequireAuth>}
         />
 
-        {/* Redirects */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Root + catch-all: smart redirect */}
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="*" element={<RootRedirect />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,0 +1,43 @@
+---
+config:
+  layout: elk
+---
+graph TB
+    adjuster["👤 Adjuster<br/>Reviews and adjudicates<br/>assigned claims"]
+    manager["👤 Manager<br/>Supervises claims and<br/>has broader access"]
+    
+    subgraph system ["Insurance Claims Adjudication System"]
+        web["🖥️ Web UI<br/>React<br/>Web interface for claims,<br/>chat, approvals and job status"]
+        api["⚙️ Backend API<br/>Django REST Framework<br/>Authentication, authorization<br/>and HTTP API"]
+        app["📦 Application Layer<br/>Python<br/>Use cases, business workflows<br/>and agent orchestration"]
+        worker["🔄 Background Worker<br/>Python<br/>Runs asynchronous document<br/>and adjudication jobs"]
+        db[("🗄️ Application Database<br/>PostgreSQL<br/>Users, claims, policies,<br/>decisions, approvals<br/>and audit data")]
+        vector[("🔍 Vector Store<br/>PostgreSQL + pgvector<br/>Document chunks and<br/>embeddings for semantic retrieval")]
+    end
+    
+    llm["🤖 LLM Provider<br/>External language model service"]
+    
+    adjuster -->|Uses| web
+    manager -->|Uses| web
+    web -->|Makes HTTPS requests| api
+    api -->|Invokes use cases| app
+    app -->|Reads and writes| db
+    app -->|Stores and retrieves embeddings| vector
+    app -->|Dispatches background jobs| worker
+    app -->|Sends selected context<br/>and requests AI responses| llm
+    
+    classDef person fill:#eef2ff,stroke:#818cf8,color:#000000
+    classDef webUI fill:#1168bd,stroke:#0d47a1,color:#ffffff
+    classDef apiLayer fill:#438dd5,stroke:#1565c0,color:#ffffff
+    classDef appLayer fill:#85bbf0,stroke:#1976d2,color:#000000
+    classDef workerNode fill:#85bbf0,stroke:#1976d2,color:#000000
+    classDef database fill:#438dd5,stroke:#1565c0,color:#ffffff
+    classDef external fill:#999999,stroke:#666666,color:#ffffff
+    
+    class adjuster,manager person
+    class web webUI
+    class api apiLayer
+    class app appLayer
+    class worker workerNode
+    class db,vector database
+    class llm external

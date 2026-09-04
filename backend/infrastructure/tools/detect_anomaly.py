@@ -1,6 +1,9 @@
 from django.db.models import Q
+
 from domain.ports.tool import Tool, ToolResult
 from infrastructure.persistence.models import Claim, PolicyVersion
+
+
 class DetectAnomalyTool(Tool):
     name = "detect_anomaly"
     description = "Flag rule-based anomalies: claim date outside policy period, duplicate claim."

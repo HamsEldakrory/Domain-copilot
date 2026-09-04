@@ -4,14 +4,15 @@ import re
 from datetime import date
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from infrastructure.persistence.models import Client, Policy, PolicyVersion, Document
-from infrastructure.persistence.django_chunk_repository import DjangoChunkRepository
-from infrastructure.ingestion.pdf_extractor import PdfExtractor
-from infrastructure.ingestion.docx_extractor import DocxExtractor
-from infrastructure.ingestion.section_chunker import NumberedHeadingChunker
-from infrastructure.composition_root import build_embedding_provider
 from application.use_cases.ingest_document import IngestDocumentUseCase
+from infrastructure.composition_root import build_embedding_provider
+from infrastructure.ingestion.docx_extractor import DocxExtractor
+from infrastructure.ingestion.pdf_extractor import PdfExtractor
+from infrastructure.ingestion.section_chunker import NumberedHeadingChunker
+from infrastructure.persistence.django_chunk_repository import DjangoChunkRepository
+from infrastructure.persistence.models import Client, Document, Policy, PolicyVersion
 
 FILENAME_RE = re.compile(r"policy_\d+_(?P<code>[a-z_]+)_(?P<version>\d{4}-\d{2})\.(pdf|docx)$")
 
@@ -60,12 +61,12 @@ class Command(BaseCommand):
                 code = match.group("code")
                 version_label = match.group("version")
                 effective_from, effective_to = VERSION_DATES.get(
-                    version_label, (date.today(), None)
+                    version_label, (timezone.now().date(), None)
                 )
             else:
                 code = os.path.splitext(filename)[0]
                 version_label = "v1"
-                effective_from, effective_to = date.today(), None
+                effective_from, effective_to = timezone.now().date(), None
                 self.stdout.write(self.style.WARNING(
                     f"  {filename}: filename doesn't match expected pattern, using fallback metadata"
                 ))

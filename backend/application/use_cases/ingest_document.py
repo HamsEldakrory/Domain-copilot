@@ -1,10 +1,11 @@
 import hashlib
 import re
 from dataclasses import dataclass
-from domain.ports.document_extractor import DocumentExtractor
-from domain.ports.text_chunker import TextChunker
-from domain.ports.llm_provider import LLMProvider
+
 from domain.ports.chunk_repository import ChunkRepository
+from domain.ports.document_extractor import DocumentExtractor
+from domain.ports.llm_provider import LLMProvider
+from domain.ports.text_chunker import TextChunker
 
 COVERAGE_LINE_RE = re.compile(r"Coverage:\s*([^.]+)\.")
 @dataclass

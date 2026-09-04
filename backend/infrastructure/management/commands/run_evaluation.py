@@ -1,9 +1,11 @@
 from django.core.management.base import BaseCommand
+
 from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
+from evaluation.golden_set import GOLDEN_SET
+from infrastructure.composition_root import build_embedding_provider
 from infrastructure.retrieval.dense_retriever import DenseRetriever
 from infrastructure.retrieval.keyword_retriever import KeywordRetriever
-from infrastructure.composition_root import build_embedding_provider
-from evaluation.golden_set import GOLDEN_SET
+
 
 class Command(BaseCommand):
     help = "Run the golden evaluation set against the retrieval pipeline and report metrics."

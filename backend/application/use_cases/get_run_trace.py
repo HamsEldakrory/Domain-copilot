@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+
+
 @dataclass
 class TraceEntry:
     timestamp: str

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+
 @dataclass
 class AgentInput:
     claim_id: str

@@ -1,6 +1,8 @@
-from domain.ports.tool import Tool, ToolResult
-from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
 from application.use_cases.format_citation import format_citation
+from application.use_cases.retrieve_chunks import RetrieveChunksUseCase
+from domain.ports.tool import Tool, ToolResult
+
+
 class SearchPolicyTool(Tool):
     name = "search_policy"
     description = "Search policy documents for text relevant to a query, filtered to a policy version."

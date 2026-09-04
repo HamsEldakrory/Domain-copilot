@@ -32,4 +32,4 @@ Thumbs.db
 npm-debug.log*
 
 # Docker (added later, harmless now)
-*.pid
+*.pid.env.docker

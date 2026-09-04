@@ -1,8 +1,11 @@
+import os
 import subprocess
 import tempfile
-import os
+
 from domain.ports.document_extractor import DocumentExtractor, ExtractedDocument
 from infrastructure.ingestion.pdf_extractor import PdfExtractor
+
+
 class DocxExtractor(DocumentExtractor):
     def supports(self, file_extension: str) -> bool:
         return file_extension.lower() == ".docx"
@@ -18,6 +21,7 @@ class DocxExtractor(DocumentExtractor):
                 ],
                 capture_output=True,
                 timeout=90,
+                check=False,
                 )
             if result.returncode != 0:
                 raise RuntimeError(

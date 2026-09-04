@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+
+
 class AgentRunRecorder(ABC):
     @abstractmethod
     def start_job(self, claim_id: str) -> str:

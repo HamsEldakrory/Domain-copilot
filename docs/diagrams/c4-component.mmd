@@ -1,0 +1,78 @@
+flowchart TB
+
+    %% =========================
+    %% Backend Container
+    %% =========================
+    subgraph BACKEND["Application / Backend [CONTAINER]"]
+
+        %% ---------- Row 1 ----------
+        subgraph ROW1[" "]
+            direction LR
+
+            API["API Layer<br/><small>[Component: Django REST Framework]</small><br/>Exposes HTTP endpoints<br/>and handles authentication"]
+
+            CLAIM["Claim Use Cases<br/><small>[Component: Application Services]</small><br/>Coordinates claim-related business<br/>workflows and document requests"]
+
+            INGEST["Document Ingestion<br/><small>[Component: Application Service]</small><br/>Processes documents into chunks<br/>and embeddings"]
+
+            RETRIEVAL["Retrieval Service<br/><small>[Component: Application Service]</small><br/>Combines keyword and semantic<br/>retrieval"]
+        end
+
+        %% ---------- Row 2 ----------
+        subgraph ROW2[" "]
+            direction LR
+
+            AGENT["Agent Orchestrator<br/><small>[Component: Application Service]</small><br/>Coordinates agents, tools, retrieval<br/>and LLM interactions"]
+
+            APPROVAL["Approval Workflow<br/><small>[Component: Application Service]</small><br/>Creates and processes human<br/>approval decisions"]
+
+            TOOL["Tool Layer<br/><small>[Component: Application Services]</small><br/>Provides controlled read and<br/>computation tools"]
+
+            LLM["LLM Port<br/><small>[Component: Interface]</small><br/>Abstract interface for<br/>LLM operations"]
+        end
+
+        %% ---------- Row 3 ----------
+        subgraph ROW3[" "]
+            direction LR
+
+            VECTOR["Vector Store Port<br/><small>[Component: Interface]</small><br/>Abstract interface for vector storage<br/>and search"]
+
+            REPO["Repository Ports<br/><small>[Component: Interface]</small><br/>Abstract persistence operations"]
+        end
+
+
+        %% =========================
+        %% Main Flow
+        %% =========================
+
+        API -->|Claims| CLAIM
+        CLAIM -->|Requests documents| INGEST
+        INGEST -->|Retrieves context| RETRIEVAL
+
+        API -->|Runs analysis| AGENT
+        API -->|Handles approvals| APPROVAL
+
+        AGENT -->|Retrieves context| RETRIEVAL
+        AGENT -->|Uses tools| TOOL
+        TOOL -->|LLM requests| LLM
+
+        RETRIEVAL -->|Searches vectors| VECTOR
+
+        APPROVAL -->|Stores decisions| REPO
+
+    end
+
+
+    %% =========================
+    %% Styling
+    %% =========================
+
+    classDef component fill:#78B5E8,stroke:#4A90C2,color:#fff,stroke-width:1px;
+    classDef port fill:#78B5E8,stroke:#4A90C2,color:#fff,stroke-width:1px;
+
+    class API,CLAIM,INGEST,RETRIEVAL,AGENT,APPROVAL,TOOL,LLM,VECTOR,REPO component;
+
+    style BACKEND fill:#ffffff,stroke:#999999,stroke-width:1px,stroke-dasharray:5 5
+    style ROW1 fill:none,stroke:none
+    style ROW2 fill:none,stroke:none
+    style ROW3 fill:none,stroke:none
