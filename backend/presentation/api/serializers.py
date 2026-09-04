@@ -1,20 +1,28 @@
 from rest_framework import serializers
 from infrastructure.persistence.models import Claim, Document, User
 
+
 class AdjudicateRequestSerializer(serializers.Serializer):
     claim_id = serializers.UUIDField()
-    claimed_amount = serializers.FloatField(min_value=0)
-    deductible_override = serializers.FloatField(min_value=0, required=False, allow_null=True)
+    claimed_amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0, coerce_to_string=False)
+    deductible_override = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=0,
+        required=False, allow_null=True, coerce_to_string=False,
+    )
+
 
 class CreateAdjusterRequestSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
+
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email", "role"]
+
+
 class JobSubmittedResponseSerializer(serializers.Serializer):
     job_id = serializers.UUIDField()
     status = serializers.CharField()
@@ -32,14 +40,20 @@ class CancelResponseSerializer(serializers.Serializer):
 
 class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
+
+
 class PolicyUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     policy_number = serializers.CharField()
     version = serializers.CharField()
     effective_from = serializers.DateField()
     effective_to = serializers.DateField(required=False, allow_null=True)
-    policy_limit = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
-    deductible = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
+    policy_limit = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True, coerce_to_string=False,
+    )
+    deductible = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True, coerce_to_string=False,
+    )
 
     def validate_file(self, value):
         ext = value.name.lower().rsplit(".", 1)[-1]
@@ -49,11 +63,25 @@ class PolicyUploadSerializer(serializers.Serializer):
 
 
 class DocumentStatusSerializer(serializers.ModelSerializer):
-    policy_number = serializers.CharField(source="policy_version.policy.policy_number", read_only=True, default=None)
-    policy_version = serializers.CharField(source="policy_version.version", read_only=True, default=None)
-    policy_limit = serializers.FloatField(source="policy_version.policy_limit", read_only=True, default=None)
-    deductible = serializers.FloatField(source="policy_version.deductible", read_only=True, default=None)
-    chunk_count = serializers.IntegerField(source="chunks.count", read_only=True, default=0)
+    policy_number = serializers.CharField(
+        source="policy_version.policy.policy_number", read_only=True, default=None,
+    )
+    policy_version = serializers.CharField(
+        source="policy_version.version", read_only=True, default=None,
+    )
+    # Monetary fields serialised as exact decimal strings — float cannot represent
+    # most monetary fractions exactly (0.1 + 0.2 != 0.3 in IEEE 754).
+    policy_limit = serializers.DecimalField(
+        source="policy_version.policy_limit", max_digits=12, decimal_places=2,
+        read_only=True, default=None, coerce_to_string=True,
+    )
+    deductible = serializers.DecimalField(
+        source="policy_version.deductible", max_digits=12, decimal_places=2,
+        read_only=True, default=None, coerce_to_string=True,
+    )
+    # chunk_count is injected by annotate(chunk_count=Count("chunks")) in DocumentListView.
+    # Do NOT use source="chunks.count" — that fires one extra SELECT COUNT(*) per row (N+1).
+    chunk_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Document
@@ -70,15 +98,29 @@ class DocumentStatusSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+
 class ClaimListSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True, default=None)
-    policy_number = serializers.CharField(source="policy_version.policy.policy_number", read_only=True, default=None)
-    policy_version = serializers.CharField(source="policy_version.version", read_only=True, default=None)
+    policy_number = serializers.CharField(
+        source="policy_version.policy.policy_number", read_only=True, default=None,
+    )
+    policy_version = serializers.CharField(
+        source="policy_version.version", read_only=True, default=None,
+    )
     policy_version_id = serializers.UUIDField(source="policy_version.id", read_only=True, default=None)
-    policy_limit = serializers.FloatField(source="policy_version.policy_limit", read_only=True, default=None)
-    deductible = serializers.FloatField(source="policy_version.deductible", read_only=True, default=None)
+    policy_limit = serializers.DecimalField(
+        source="policy_version.policy_limit", max_digits=12, decimal_places=2,
+        read_only=True, default=None, coerce_to_string=True,
+    )
+    deductible = serializers.DecimalField(
+        source="policy_version.deductible", max_digits=12, decimal_places=2,
+        read_only=True, default=None, coerce_to_string=True,
+    )
     adjuster_name = serializers.CharField(source="adjuster.username", read_only=True, default=None)
     adjuster_email = serializers.CharField(source="adjuster.email", read_only=True, default=None)
+    final_payout = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, allow_null=True, coerce_to_string=True,
+    )
 
     class Meta:
         model = Claim
@@ -98,14 +140,19 @@ class ClaimListSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+
 class AskRequestSerializer(serializers.Serializer):
     query = serializers.CharField()
     policy_version_id = serializers.UUIDField(required=False)
+
 
 class ApprovalDecisionRequestSerializer(serializers.Serializer):
     decision = serializers.ChoiceField(choices=["approve", "reject", "edit"])
     outcome = serializers.CharField(required=False, allow_blank=True)
     rationale = serializers.CharField(required=False, allow_blank=True)
     comment = serializers.CharField(required=False, allow_blank=True)
-    final_payout = serializers.FloatField(required=False, allow_null=True)
+    # Accept exact decimal strings ("4500.00") from the UI — never pass through float.
+    final_payout = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True, coerce_to_string=False,
+    )
     original_recommendation = serializers.DictField(required=False, allow_null=True)
