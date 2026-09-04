@@ -58,7 +58,7 @@ def _dispatch_adjudication(job_id, claim_id, claimed_amount, correlation_id, ded
 
 
 class AdjudicateView(APIView):
-    permission_classes = [IsAuthenticated, IsAdjuster, CanAccessClaim]
+    permission_classes = [IsAuthenticated, CanAccessClaim]
     @extend_schema(
         request=AdjudicateRequestSerializer,
         responses={202: JobSubmittedResponseSerializer, 403: ErrorResponseSerializer},
