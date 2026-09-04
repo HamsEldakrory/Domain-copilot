@@ -1,12 +1,19 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { useClaims } from "../hooks/useClaims";
 import { useCurrentUser } from "../hooks/useAuth";
 import AppShell from "../components/AppShell";
 import StatusBadge from "../components/StatusBadge";
+import CreateClaimModal from "../components/CreateClaimModal";
 
 export default function Claims() {
   const { data: claims, isLoading, isError, error } = useClaims();
-  useCurrentUser(true);
+  const { data: me } = useCurrentUser(true);
+  const navigate = useNavigate();
+  const [showCreate, setShowCreate] = useState(false);
+
+  const isAdjuster = me?.role === "ADJUSTER";
 
   return (
     <AppShell title="Claims">
@@ -15,6 +22,14 @@ export default function Claims() {
           <div className="page-title">Claims</div>
           <div className="page-subtitle">All claims in your scope</div>
         </div>
+        {isAdjuster && (
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowCreate(true)}
+          >
+            + New Claim
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -109,6 +124,13 @@ export default function Claims() {
           </tbody>
         </table>
       </div>
+
+      {showCreate && (
+        <CreateClaimModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(claim) => navigate(`/claims/${claim.id}`)}
+        />
+      )}
     </AppShell>
   );
 }
