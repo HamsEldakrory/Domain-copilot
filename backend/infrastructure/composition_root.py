@@ -6,6 +6,7 @@ import os
 
 from application.container import container
 from domain.ports.llm_provider import LLMProvider
+from infrastructure.llm.fallback_provider import FallbackCompletionProvider
 from infrastructure.llm.ollama_provider import OllamaProvider
 from infrastructure.llm.openai_provider import OpenAIProvider
 
@@ -19,9 +20,16 @@ def build_completion_provider():
     primary_cls = PROVIDERS.get(primary_name, OpenAIProvider)
     fallback_cls = PROVIDERS.get(fallback_name, OllamaProvider)
     try:
-        return primary_cls()
+        primary = primary_cls()
     except Exception:
+        # Primary can't even be constructed — use fallback directly.
         return fallback_cls()
+    try:
+        fallback = fallback_cls()
+    except Exception:
+        # Fallback can't be constructed — primary only, no safety net.
+        return primary
+    return FallbackCompletionProvider(primary=primary, fallback=fallback)
     
 def build_embedding_provider():
     name = os.getenv("EMBEDDING_PROVIDER", "openai")
