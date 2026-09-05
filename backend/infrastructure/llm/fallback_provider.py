@@ -1,6 +1,11 @@
 import logging
 
-from domain.ports.llm_provider import CompletionResult, LLMProvider, Message, ToolDefinition
+from domain.ports.llm_provider import (
+    CompletionResult,
+    LLMProvider,
+    Message,
+    ToolDefinition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +74,8 @@ class _FallbackStream:
                     )
                     try:
                         self._stream.close()
-                    except Exception:
-                        pass
+                    except Exception as close_exc:
+                        logger.debug("Failed to close primary stream: %s", close_exc)
                     self._stream = self._fallback_fn()
                     self._switched = True
                     # Loop back and pull from the fallback stream
@@ -80,8 +85,8 @@ class _FallbackStream:
     def close(self):
         try:
             self._stream.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to close stream: %s", exc)
 
 
 class FallbackCompletionProvider(LLMProvider):
