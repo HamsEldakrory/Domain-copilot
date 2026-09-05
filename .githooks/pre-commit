@@ -1,0 +1,33 @@
+#!/bin/sh
+# Pre-commit quality gate.
+#
+# STATUS: NEW. No git hook existed during development — every test run
+# and lint check up to this point was manual, invoked explicitly after
+# each step ("run this, paste the output"). This is a real, formalized
+# addition, not a retroactive claim that it was used from Day 1.
+#
+# Runs the backend test suite and a lint check before allowing a commit.
+# Does not run migrations or hit external services (Redis/LLM providers)
+# to keep it fast enough to actually be used.
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)/backend" || exit 1
+
+echo "[pre-commit] Running backend tests..."
+.venv/bin/python3 manage.py test --exclude-tag=integration || {
+    echo "[pre-commit] Tests failed - commit blocked. Fix or run with --no-verify to override."
+    exit 1
+}
+
+if command -v ruff >/dev/null 2>&1; then
+    echo "[pre-commit] Running lint..."
+    ruff check . || {
+        echo "[pre-commit] Lint failed - commit blocked."
+        exit 1
+    }
+else
+    echo "[pre-commit] ruff not installed, skipping lint (install with: pip install ruff)"
+fi
+
+echo "[pre-commit] OK"
