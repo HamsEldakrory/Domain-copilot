@@ -38,10 +38,10 @@ services:
     volumes:
       - ollama_data:/root/.ollama   # models cached across restarts
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/ || exit 1"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
       start_period: 20s
 
   # Pulls required models once on first boot; exits when done
@@ -69,7 +69,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./backend/.env.docker
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      OLLAMA_HOST: http://ollama:11434
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
       db:
         condition: service_healthy
@@ -78,7 +83,7 @@ services:
       ollama:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend:/app
       - media_data:/app/media
@@ -91,7 +96,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./backend/.env.docker
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      OLLAMA_HOST: http://ollama:11434
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
       db:
         condition: service_healthy
@@ -103,6 +113,30 @@ services:
       - ./backend:/app
       - media_data:/app/media
     command: celery -A config worker --loglevel=info --concurrency=2
+
+  setup:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: "no"
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      OLLAMA_HOST: http://ollama:11434
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+    depends_on:
+      django:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+      - ./corpus:/corpus
+    command: >
+      sh -c "python manage.py seed_dev_data &&
+             python manage.py ingest_corpus"
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
 
@@ -118,7 +152,7 @@ services:
     volumes:
       - ./frontend/src:/app/src
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_BASE_URL: http://localhost:8000/api
 
 volumes:
   pgdata:
