@@ -79,12 +79,12 @@ class Command(BaseCommand):
                 username=u["username"],
                 defaults={"role": u["role"]},
             )
+            obj.set_password(u["password"])
+            obj.save()
             if created:
-                obj.set_password(u["password"])
-                obj.save()
                 self.stdout.write(f"  ✓ Created user: {u['username']}")
             else:
-                self.stdout.write(f"  · Existing user: {u['username']}")
+                self.stdout.write(f"  · Existing user (password reset): {u['username']}")
             created_users[u["username"]] = obj
 
         # ── Clients ───────────────────────────────────────────────────────
