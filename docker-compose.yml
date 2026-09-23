@@ -135,7 +135,8 @@ services:
       - media_data:/app/media
       - ./corpus:/corpus
     command: >
-      sh -c "python manage.py seed_dev_data &&
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py seed_dev_data &&
              python manage.py ingest_corpus"
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
