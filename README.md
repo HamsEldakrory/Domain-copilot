@@ -8,6 +8,9 @@ Agentic RAG platform for insurance claims adjudication. A fully deterministic, h
 - **~15 minutes** of time (to pull models and build containers).
 - *Nothing else required!* The entire stack (Postgres, Redis, LLMs, Backend, Frontend) runs in Docker.
 
+> [!NOTE]
+> If you prefer to use an external LLM API (e.g. OpenAI) instead of running Ollama locally, see the [**Running Without Ollama**](#-running-without-ollama-api-key-required) section below.
+
 ## 🚀 Quick Start (One Command Setup)
 
 To bring up the **entire system** (including frontend, backend, databases, redis, LLMs, and Celery workers) plus **automatically seed the database and ingest the corpus**, simply run:
@@ -27,6 +30,53 @@ docker compose up -d --build
 
 > [!NOTE]
 > The initial boot may take a few minutes as the Ollama container needs to download the AI models (~3GB). You can track progress with: `docker compose logs -f ollama-init`
+
+---
+
+## 🚫 Running Without Ollama (API Key Required)
+
+If you **do not want to run Ollama locally** (e.g. you prefer to use OpenAI or another cloud LLM provider), use the alternative compose file:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+# Edit backend/.env and set your API key + providers (see below)
+docker compose -f docker-compose.no-ollama.yml up -d --build
+```
+
+> [!WARNING]
+> `docker-compose.no-ollama.yml` does **not** start an Ollama container. The project will **not work** unless you configure a valid external API key in `backend/.env`.
+> Make sure to set the following variables before starting:
+> ```env
+> LLM_PROVIDER=openai
+> EMBEDDING_PROVIDER=openai
+> OPENAI_API_KEY=your_key_here
+> OPENAI_MODEL=gpt-4o
+> OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+> ```
+> Leaving `LLM_PROVIDER=ollama` or `EMBEDDING_PROVIDER=ollama` while using this compose file **will cause the adjudication pipeline to fail** at runtime because there is no local Ollama server available.
+
+### What this command does (no-ollama variant):
+1. Starts **Postgres** (with `pgvector`) and **Redis**.
+2. Starts the **Django backend** and **Celery worker** — both calling your configured external API.
+3. Runs a **setup container** that executes `python manage.py seed_dev_data` and `python manage.py ingest_corpus`.
+4. Starts the **Vite frontend** on `http://localhost:5173`.
+
+### ⏱️ Installation Time Comparison
+
+> [!NOTE]
+> Times are estimates based on a typical broadband connection (~100 Mbps) and a mid-range developer machine (8-core CPU, 16 GB RAM). Actual times vary with hardware and network speed.
+
+| Step | With Ollama (`docker-compose.yml`) | Without Ollama (`docker-compose.no-ollama.yml`) |
+|---|---|---|
+| Docker image pulls (infra) | ~2 min | ~2 min |
+| Backend & frontend build | ~3 min | ~3 min |
+| **Ollama model downloads** | **~10–15 min** *(~3 GB: llama3.2 + nomic-embed-text)* | **—** *(skipped entirely)* |
+| DB migration + seed + ingest | ~1–2 min | ~1–2 min |
+| **Total (first run)** | **~16–22 min** | **~6–7 min** |
+| Subsequent starts (cold) | ~1 min *(models cached)* | ~1 min |
+
+**Summary:** Running without Ollama cuts first-run setup time by **~60–70%** (~10–15 minutes saved) by skipping the local model download step.
 
 ---
 
