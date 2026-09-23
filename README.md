@@ -14,6 +14,7 @@ To bring up the **entire system** (including frontend, backend, databases, redis
 
 ```bash
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 docker compose up -d --build
 ```
 
